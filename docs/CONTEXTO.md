@@ -149,7 +149,8 @@ js/
   utils/            math.js (mean, weightedMean, clamp…), text.js (normalizeName, namesMatch)
   io/               importError, formatDetector, jsonParser, fileReader
   adapters/         common (compartido), v2Adapter, v4Adapter
-  app/              casos de uso: importMatches, analyzeMatches, importContext, settings
+  app/              casos de uso: importMatches, analyzeMatches, importContext, settings,
+                    history (registros + almacén), importResults (resultados y respaldos)
   domain/           SOLO funciones puras (sin DOM):
     odds.js           cuotas → decimal, quitar margen
     marketCatalog.js  nombres de Sofascore → tipos canónicos, grupos de mercado, índice de cotizaciones
@@ -171,6 +172,9 @@ js/
     value.js          EV, probabilidad justa, nivel de confianza
     ranking.js        ranking global de picks con filtros
     combos.js         combinadas automáticas
+    history.js        registros del historial (predicciones y apuestas), unión y pendientes
+    settlement.js     liquidación con el resultado real y cuota de cierre
+    performance.js    ganancia, ROI, acierto, CLV y calibración
     alerts.js         códigos de alerta
     analyzeMatch.js   orquestador
   ui/
@@ -184,6 +188,11 @@ js/
     contextPanel.js   "Copiar para Claude" y aplicar el bloque
     settingsPanel.js  diálogo de ajustes
     claudePrompt.js   texto compacto para Claude
+    historyController.js  acciones del historial (registrar, liquidar, respaldo)
+    betDialog.js      diálogo "Registrar apuesta"
+    resultsScriptSource.js  script de consola de resultados (función autosuficiente, se pasa a texto)
+    resultsScript.js  arma ese script con los ids pendientes
+    download.js       descargar un texto como archivo
     renderers/        results (vistas), daySummary, picksRanking, combosView, matchList, matchDetail (pestañas),
                       matchHeader, alertsPanel, overview, valueTable, probabilityTables, extraMarkets,
                       playersTable, teamStats, lineups
@@ -195,6 +204,7 @@ docs/CONTEXTO.md    este archivo
 ### Interfaz
 
 - **Vistas** (solo con varios partidos): Resumen del día · Partidos (lista + detalle) · Picks (ranking) · Combinadas.
+- **Historial** (📒 en la barra superior): pantalla aparte, disponible aunque no haya partidos cargados (ver §9 bis). `io/historyDb.js` guarda en IndexedDB.
 - **Pestañas del partido:** Resumen (KPIs, λ, mapa de marcadores, contexto) · Valor · Goles y 1X2 (resultado, goles, primer tiempo, hándicap) · Corners y tarjetas · Jugadores · Equipos · Alineaciones.
 - En el celular la lista de partidos es un carrusel horizontal y las tablas tienen scroll propio: la página nunca se desborda.
 
@@ -373,6 +383,36 @@ Un pick por partido, EV > 0, nivel ≥ media, cuota ≥ 1.50 (excepciones en `co
 
 ---
 
+## 9 bis. Historial y medición del modelo
+
+La página es estática, así que todo se guarda **en el navegador** (IndexedDB, base `analizador-partidos`) y los resultados se traen con un script de consola, igual que los datos.
+
+**Registros** (`domain/history.js`): uno por selección analizada, con clave `partido|mercado|línea|selección`.
+
+- **Predicciones del modelo:** cada análisis guarda solas todas sus selecciones (probabilidad, cuota, EV, nivel), solo de partidos que **no han empezado** (con el partido en juego las cuotas serían en vivo). Volver a analizar actualiza lo pendiente y nunca pisa lo liquidado.
+- **Apuestas del usuario:** botón **+** junto a cada pick (pestaña Valor y ranking). Se guarda la cuota tomada y el monto en unidades; con ✓ se edita o se quita.
+
+**Resultados** (flujo semiautomático):
+
+1. Historial → **Copiar script**: la página arma un script con los ids pendientes (hasta 40, `history.maxScriptMatches`).
+2. Se pega en la consola de sofascore.com. Por cada partido trae estado, marcador a 90' (`normaltime`), descanso, corners, amarillas, primer gol (incidencias) y las últimas cuotas. Descarga `resultados_sofascore_FECHA.json` con `"tipo": "resultados-sofascore"`.
+3. Se sube o pega en el Historial: se **liquida todo lo pendiente** de los partidos terminados. Los no terminados quedan pendientes para el próximo script.
+
+**Liquidación** (`domain/settlement.js`): a 90 minutos. Estados: ganada, media ganada, devuelta, media perdida y perdida (las dos medias solo en hándicap de cuarto). Si falta un dato (ej. corners), esa selección queda pendiente.
+
+**Rendimiento** (`domain/performance.js`):
+
+- **Mis apuestas:** con la cuota y el monto registrados. **Picks del modelo:** todos los picks con valor, a 1 unidad y a la cuota del análisis.
+- Ganancia, ROI, acierto (sin contar devoluciones), por nivel de confianza y por mercado.
+- **CLV** = cuota tomada / cuota de cierre − 1. La cuota de cierre es la que devuelve Sofascore en el script de resultados; si no la trae para ese mercado, queda vacía.
+- **Calibración:** todas las predicciones liquidadas por rangos de 10%: predicho vs. ocurrido.
+
+**Respaldo:** Exportar/Importar un JSON (`"tipo": "historial-analizador"`) para pasar el historial a otro navegador o equipo. Al importar gana el registro con más información (liquidado > con apuesta > más nuevo).
+
+**Sin probar con la API real:** los campos `normaltime`, `incidents` (primer gol) y si las cuotas siguen disponibles después del partido. Si algo no llega, el script lo deja vacío y la liquidación de ese mercado queda pendiente.
+
+---
+
 ## 10. Fases y estado
 
 - [x] **Fase 1 — MVP:** carga, detección v2/v3/v4, Poisson, λ, mezcla empírica, 1X2, DC, DNB, Over/Under, ambos anotan, primer gol, valor, estadísticas por bloque, H2H, alineaciones, alertas.
@@ -381,6 +421,8 @@ Un pick por partido, EV > 0, nivel ≥ media, cuota ≥ 1.50 (excepciones en `co
 - [x] **Fase 3 — Más mercados:** hándicap asiático, primer tiempo, corners (total, por equipo, 1er tiempo), tarjetas, jugadores (1+ y 2+ tiros y tiros a puerta).
 - [x] **Fase 4 — Inteligencia de datos:** calendario, bajas cuantificadas, coeficientes de liga, peso por competición, localía por liga, alertas `marketDivergence` y `keyPlayerOut`.
 - [x] **Fase 5 — Contexto y publicación:** bloque de contexto de Claude y "Copiar para Claude", panel de ajustes en `localStorage`, selector de tema, pulido para celular. Lista para GitHub Pages (§11).
+- [x] **Historial:** registro automático de predicciones, botón para registrar apuestas, script de resultados generado por la página, liquidación automática, ROI, CLV, calibración y respaldo (§9 bis).
+- [ ] **Siguiente:** script v5 (cuota de apertura, árbitro, calendario), Dixon-Coles, peso por antigüedad y fuerza de equipos con los resultados de toda la liga.
 - [ ] **Fase 6 (opcional):** llamada directa a la API de Anthropic con la clave del usuario guardada solo en su navegador. Costo aparte; no usar en equipos compartidos.
 
 **Pendientes conocidos:** los nombres de los mercados de hándicap asiático, corners y tarjetas (`Asian handicap`, `Corners 2-Way N.5`, `Cards in match N.5`) no se han comprobado con un JSON real; si llegan con otros nombres, solo hay que ajustar `DEFINITIONS` en `marketCatalog.js`. Los tests cubren sobre todo la fase 1.

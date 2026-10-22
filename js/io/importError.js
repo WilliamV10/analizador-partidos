@@ -9,6 +9,9 @@ export const IMPORT_ERRORS = Object.freeze({
   EXPECTED_SINGLE: 'expectedSingle',
   CONTEXT_IN_LOADER: 'contextInLoader',
   NOT_CONTEXT: 'notContext',
+  HISTORY_IN_LOADER: 'historyInLoader',
+  NOT_RESULTS: 'notResults',
+  NOT_BACKUP: 'notBackup',
 });
 
 export class ImportError extends Error {

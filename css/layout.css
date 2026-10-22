@@ -193,3 +193,15 @@ main.container {
     animation: none !important;
   }
 }
+
+@media (max-width: 480px) {
+  .brand__subtitle {
+    display: none;
+  }
+
+  .brand__title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

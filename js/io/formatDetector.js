@@ -9,9 +9,23 @@ export const FORMAT_KINDS = Object.freeze({ SINGLE: 'single', MULTI: 'multi' });
 
 export const CONTEXT_BLOCK_TYPE = 'contexto-claude';
 
+export const RESULTS_BLOCK_TYPE = 'resultados-sofascore';
+export const HISTORY_BACKUP_TYPE = 'historial-analizador';
+
+const hasType = (root, type) => Boolean(root) && typeof root === 'object' && root.tipo === type;
+
 /** El bloque que devuelve Claude también trae "partidos", pero se reconoce por su "tipo". */
 export function isContextBlock(root) {
-  return Boolean(root) && typeof root === 'object' && root.tipo === CONTEXT_BLOCK_TYPE;
+  return hasType(root, CONTEXT_BLOCK_TYPE);
+}
+
+/** JSON del script de resultados (también trae "partidos"). */
+export function isResultsBlock(root) {
+  return hasType(root, RESULTS_BLOCK_TYPE);
+}
+
+export function isHistoryBackup(root) {
+  return hasType(root, HISTORY_BACKUP_TYPE);
 }
 
 /**
@@ -21,6 +35,9 @@ export function isContextBlock(root) {
  */
 export function detectFormat(root, sourceName) {
   if (isContextBlock(root)) throw new ImportError(IMPORT_ERRORS.CONTEXT_IN_LOADER, { source: sourceName });
+  if (isResultsBlock(root) || isHistoryBackup(root)) {
+    throw new ImportError(IMPORT_ERRORS.HISTORY_IN_LOADER, { source: sourceName });
+  }
   if (root && typeof root === 'object' && Array.isArray(root.partidos)) {
     return { kind: FORMAT_KINDS.MULTI, version: root.version ?? 3 };
   }

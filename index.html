@@ -29,6 +29,7 @@
           </div>
         </div>
         <div class="app-bar__actions" data-app-actions>
+          <button class="icon-button" type="button" data-history-toggle aria-pressed="false" aria-label="Historial" title="Historial">📒</button>
           <button class="icon-button" type="button" data-settings-open aria-label="Ajustes del modelo" title="Ajustes del modelo">⚙️</button>
           <button class="icon-button" type="button" data-theme-toggle aria-label="Cambiar tema"></button>
         </div>
@@ -130,7 +131,34 @@
       </details>
 
       <section id="results" aria-live="polite"></section>
+      <section id="history" aria-live="polite" hidden></section>
     </main>
+
+    <dialog id="bet-dialog" class="dialog dialog--small" aria-labelledby="bet-title">
+      <form class="dialog__form" method="dialog" data-bet-form>
+        <header class="dialog__header">
+          <h2 id="bet-title" class="card__title">Registrar apuesta</h2>
+          <button class="icon-button" type="submit" value="close" aria-label="Cerrar">✕</button>
+        </header>
+        <div class="dialog__body stack">
+          <div class="pick-cell" data-bet-pick></div>
+          <div class="settings__grid">
+            <label class="field">
+              <span class="field__label">Cuota tomada</span>
+              <input class="field__input" type="number" inputmode="decimal" min="1.01" step="0.01" required data-bet-odds />
+            </label>
+            <label class="field">
+              <span class="field__label">Monto (unidades)</span>
+              <input class="field__input" type="number" inputmode="decimal" min="0.01" step="0.25" required data-bet-stake />
+            </label>
+          </div>
+        </div>
+        <footer class="dialog__footer">
+          <button class="button button--ghost" type="button" data-bet-remove>Quitar registro</button>
+          <button class="button button--primary" type="button" data-bet-save>Guardar</button>
+        </footer>
+      </form>
+    </dialog>
 
     <dialog id="settings" class="dialog" aria-labelledby="settings-title">
       <form class="dialog__form" method="dialog" data-settings-form>

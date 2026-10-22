@@ -1585,3 +1585,74 @@ details > summary {
 .settings__group + .settings__group {
   margin-top: var(--space-2);
 }
+
+/* ---------- Historial y apuestas ---------- */
+.bet-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.bet-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.bet-button.is-registered {
+  border-style: solid;
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.badge--loss {
+  background: color-mix(in srgb, var(--loss) 16%, transparent);
+  color: var(--loss);
+}
+
+.button--danger {
+  color: var(--negative);
+  border-color: color-mix(in srgb, var(--negative) 40%, transparent);
+}
+
+.history__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.history__title {
+  font-size: 1.2rem;
+}
+
+.history__status {
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.results-loader {
+  margin-top: var(--space-4);
+}
+
+.dialog--small {
+  width: min(440px, calc(100vw - var(--space-4)));
+}
+
+.icon-button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--accent-text);
+}

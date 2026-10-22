@@ -20,6 +20,11 @@ export const ALERT_CODES = Object.freeze({
 
 const NOT_STARTED = 'Not started';
 
+/** ¿El partido ya empezó? (las cuotas podrían ser en vivo). */
+export function hasStarted(match) {
+  return Boolean(match.status) && match.status !== NOT_STARTED;
+}
+
 const alert = (code, level, params = {}) => ({ code, level, params });
 
 function hasStarters(team) {
@@ -75,7 +80,7 @@ function keyPlayerAlerts(teamName, projections, lineupsConfirmed) {
 export function buildAlerts({ match, recentSampleSizes, excludedRows, lambdas, statsProbabilities, players }, config) {
   const hasMarketLambdas = Boolean(lambdas.market);
   const alerts = [];
-  if (match.status && match.status !== NOT_STARTED) {
+  if (hasStarted(match)) {
     alerts.push(alert(ALERT_CODES.MATCH_STARTED, ALERT_LEVELS.WARNING, { status: match.status, score: match.score }));
   }
   if (!hasStarters(match.home) && !hasStarters(match.away)) {

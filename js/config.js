@@ -148,6 +148,16 @@ export const CONFIG = deepFreeze({
     /** Combinadas que se muestran por criterio. */
     shown: 3,
   },
+  history: {
+    /** Partidos pendientes que entran en un script de resultados (Sofascore limita peticiones). */
+    maxScriptMatches: 40,
+    /** Rangos de probabilidad en la tabla de calibración (10 = de 10 en 10 %). */
+    calibrationBins: 10,
+    /** Registros que se muestran en la lista del historial. */
+    recentShown: 100,
+    /** Monto por defecto al registrar una apuesta (unidades). */
+    defaultStake: 1,
+  },
   display: {
     goalLines: [0.5, 1.5, 2.5, 3.5, 4.5, 5.5],
     topScores: 8,

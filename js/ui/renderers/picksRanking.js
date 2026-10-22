@@ -57,18 +57,17 @@ function filtersBar(analyses, filters, onChange) {
  * @param {import('../../domain/analyzeMatch.js').MatchAnalysis[]} analyses
  * @param {import('../../domain/ranking.js').PickFilters} filters
  * @param {(patch: Partial<import('../../domain/ranking.js').PickFilters>) => void} onChangeFilters
+ * @param {import('./valueTable.js').Betting} betting
  */
-export function renderPicksRanking(analyses, filters, onChangeFilters) {
+export function renderPicksRanking(analyses, filters, onChangeFilters, betting) {
   const ranked = rankPicks(analyses, filters);
-  const entries = ranked.map(({ analysis, pick }) => ({
-    pick,
-    names: { home: analysis.match.home.name, away: analysis.match.away.name },
-    matchTitle: analysis.match.title,
-  }));
+  const entries = ranked.map(({ analysis, pick }) => ({ pick, match: analysis.match, showMatch: true }));
   return card(
     { title: TEXTS.ranking.title(ranked.length), icon: '🏆' },
     filtersBar(analyses, filters, onChangeFilters),
-    entries.length ? picksTable(entries) : emptyState({ icon: '🔍', title: TEXTS.ranking.empty, text: TEXTS.ranking.emptyHint }),
+    entries.length
+      ? picksTable(entries, betting)
+      : emptyState({ icon: '🔍', title: TEXTS.ranking.empty, text: TEXTS.ranking.emptyHint }),
     note(TEXTS.sections.valueNote),
   );
 }

@@ -39,6 +39,7 @@ function matchView(state, actions) {
           onSelectTab: actions.selectMatchTab,
           onlyValue: state.onlyValue,
           onToggleOnlyValue: actions.toggleOnlyValue,
+          betting: actions.betting,
         })
       : null,
   );
@@ -47,7 +48,8 @@ function matchView(state, actions) {
 const VIEW_RENDERERS = {
   [VIEWS.DAY]: (state, actions) => renderDaySummary(state.analyses, actions.openMatch),
   [VIEWS.MATCH]: matchView,
-  [VIEWS.PICKS]: (state, actions) => renderPicksRanking(state.analyses, state.pickFilters, actions.changePickFilters),
+  [VIEWS.PICKS]: (state, actions) =>
+    renderPicksRanking(state.analyses, state.pickFilters, actions.changePickFilters, actions.betting),
   [VIEWS.COMBOS]: (state) => renderCombos(state.analyses, state.config.combos),
 };
 

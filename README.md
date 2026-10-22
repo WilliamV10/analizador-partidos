@@ -10,6 +10,7 @@ Página web estática que analiza el JSON exportado por los scripts de Sofascore
 2. Abre la página, pega el JSON o sube uno o varios archivos, y pulsa **Analizar**.
 3. (Opcional) En **Contexto de Claude**, copia el resumen, pásaselo a Claude y pega el bloque que devuelve para recalcular con noticias, bajas y rotaciones.
 4. (Opcional) Con ⚙️ ajustas los parámetros del modelo; se guardan en tu navegador.
+5. **Historial (📒):** las predicciones se guardan solas; registra tus apuestas con **+**. Después de los partidos, copia el script de resultados, córrelo en la consola de Sofascore y sube el archivo: todo se liquida solo y ves ganancia, ROI, CLV y calibración.
 
 ## Correr en local
 
