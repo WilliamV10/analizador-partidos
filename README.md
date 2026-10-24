@@ -11,7 +11,7 @@ Página web estática que analiza el JSON exportado por los scripts de Sofascore
    Lo cargado se guarda en el navegador: al volver a abrir la página se recupera solo. **Limpiar** lo borra.
 3. (Opcional) En **Contexto**, copia el resumen, pásaselo a Claude y pega el bloque que devuelve para recalcular con noticias, bajas y rotaciones.
 4. (Opcional) En **Ajustes** cambias los parámetros del modelo; se guardan en tu navegador. El botón sol/luna de arriba cambia entre modo oscuro y claro.
-5. En **Explorar** mueves un deslizador para ver la probabilidad de 2, 3, 4… goles, corners o tarjetas (total, por equipo o del 1er tiempo), en un partido o en todos a la vez.
+5. En **Explorar** mueves un deslizador para ver la probabilidad de 2, 3, 4… goles, corners o tarjetas (total, por equipo o del 1er tiempo) y la de que ambos anoten, en un partido o en todos a la vez.
 6. En **Combinada** armas tu combinada con los picks con valor y la copias.
 7. **Historial:** las predicciones se guardan solas; registra tus apuestas con **+**. Después de los partidos, copia el script de resultados, córrelo en la consola de Sofascore y sube el archivo: todo se liquida solo y ves ganancia, ROI, CLV y calibración.
 

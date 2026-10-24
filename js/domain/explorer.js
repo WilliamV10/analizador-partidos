@@ -7,9 +7,10 @@
  *  - Corners y tarjetas: binomial negativa con el esperado final (incluye la mezcla con la cuota).
  * No incluye la mezcla con lo ocurrido realmente de las pestañas Valor y Mercados,
  * por eso puede diferir en uno o dos puntos de ellas.
+ *  - Ambos anotan (bttsBreakdown): sí usa la probabilidad final de esas pestañas.
  */
 import { countVector } from './counts.js';
-import { poissonVector, totalGoalsDistribution } from './poisson.js';
+import { poissonVector, probabilityWhere, totalGoalsDistribution } from './poisson.js';
 
 /**
  * Estadísticas que se pueden explorar.
@@ -28,7 +29,13 @@ export const EXPLORER_STATS = Object.freeze([
   { id: 'cards', group: 'cards', source: 'yellows', side: 'total', market: 'cards' },
   { id: 'cardsHome', group: 'cards', source: 'yellows', side: 'home', market: null },
   { id: 'cardsAway', group: 'cards', source: 'yellows', side: 'away', market: null },
+  { id: 'btts', group: 'btts', source: 'btts', side: 'total', market: 'btts' },
 ]);
+
+/** ¿La estadística es de sí/no (sin deslizador)? */
+export function isBinaryStat(stat) {
+  return stat.source === 'btts';
+}
 
 export const EXPLORER_GROUPS = Object.freeze([...new Set(EXPLORER_STATS.map((stat) => stat.group))]);
 
@@ -57,6 +64,7 @@ function goalsDistribution(grid, side) {
 export function statDistribution(analysis, statId) {
   const stat = explorerStat(statId);
   const { config } = analysis;
+  if (isBinaryStat(stat)) return null;
   if (stat.source === 'goals') return goalsDistribution(analysis.grid, stat.side);
   if (stat.source === 'halfTime') {
     const { home, away } = analysis.halfTime.lambdas;
@@ -84,4 +92,28 @@ export function valueProbabilities(distribution, value) {
 
 export function distributionMean(distribution) {
   return distribution.reduce((sum, probability, value) => sum + probability * value, 0);
+}
+
+/**
+ * Ambos anotan, con lo que lo rodea.
+ *  - yes: la probabilidad final (modelo mezclado con lo ocurrido), la misma de Valor y Mercados.
+ *  - model / empirical / n: de dónde sale esa mezcla.
+ *  - homeScores, awayScores: cada equipo anota (final).
+ *  - yesAndOver25: ambos anotan y hay 3 goles o más (grilla del modelo).
+ *  - firstHalf: ambos anotan antes del descanso (Poisson con los λ del primer tiempo).
+ * @param {import('./analyzeMatch.js').MatchAnalysis} analysis
+ */
+export function bttsBreakdown(analysis) {
+  const { btts, homeScores, awayScores } = analysis.binary;
+  const { home, away } = analysis.halfTime.lambdas;
+  return {
+    yes: btts.final,
+    model: btts.model,
+    empirical: btts.empirical,
+    n: btts.n,
+    homeScores: homeScores.final,
+    awayScores: awayScores.final,
+    yesAndOver25: probabilityWhere(analysis.grid, (homeGoals, awayGoals) => homeGoals > 0 && awayGoals > 0 && homeGoals + awayGoals >= 3),
+    firstHalf: (1 - Math.exp(-home)) * (1 - Math.exp(-away)),
+  };
 }
