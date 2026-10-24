@@ -23,9 +23,8 @@ export const TEXTS = Object.freeze({
   },
   weekdays: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
   theme: {
-    auto: { icon: '🌗', label: 'Tema: automático (toca para claro)' },
-    light: { icon: '☀️', label: 'Tema: claro (toca para oscuro)' },
-    dark: { icon: '🌙', label: 'Tema: oscuro (toca para automático)' },
+    toDark: 'Cambiar a modo oscuro',
+    toLight: 'Cambiar a modo claro',
   },
   a11y: {
     form: (form) => `Forma reciente: ${form.map((result) => ({ W: 'ganó', D: 'empató', L: 'perdió' })[result] ?? result).join(', ')}`,

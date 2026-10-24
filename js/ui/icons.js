@@ -38,6 +38,11 @@ const ICONS = {
   arrow: [['path', { d: 'M5 12h14M13 6l6 6-6 6' }]],
   edit: [['path', { d: 'M4 20h4L19 9l-4-4L4 16Z' }]],
   chart: [['path', { d: 'M4 20h16' }], ['path', { d: 'M7 16v-5M12 16V6M17 16v-8' }]],
+  moon: [['path', { d: 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z' }]],
+  sun: [
+    ['circle', { cx: '12', cy: '12', r: '4' }],
+    ['path', { d: 'M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4' }],
+  ],
   search: [['circle', { cx: '11', cy: '11', r: '6.5' }], ['path', { d: 'm16 16 4 4' }]],
   theme: [['circle', { cx: '12', cy: '12', r: '8.5' }], ['path', { d: 'M12 3.5v17A8.5 8.5 0 0 0 12 3.5Z', fill: 'currentColor' }]],
 };

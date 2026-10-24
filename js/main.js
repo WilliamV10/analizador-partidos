@@ -21,7 +21,7 @@ import { buildClaudePrompt } from './ui/claudePrompt.js';
 import { replaceContent } from './ui/dom.js';
 import { downloadText } from './ui/download.js';
 import { createHistoryController } from './ui/historyController.js';
-import { hydrateIcons } from './ui/icons.js';
+import { hydrateIcons, icon } from './ui/icons.js';
 import { bindLoader } from './ui/loaderPanel.js';
 import { SCREENS, renderNavigation, resolveScreen } from './ui/navigation.js';
 import { readJsonPreference, removePreference, writeJsonPreference } from './ui/preferences.js';
@@ -36,7 +36,7 @@ import { VALUE_MODES } from './ui/screens/matchTabs/value.js';
 import { renderSettings } from './ui/screens/settings.js';
 import { dayTitle, tournamentLine } from './ui/screens/shared.js';
 import { createStore } from './ui/store.js';
-import { readTheme, setTheme } from './ui/theme.js';
+import { bindThemeToggle, readTheme, setTheme } from './ui/theme.js';
 
 const SETTINGS_STORAGE_KEY = 'analizador.settings';
 const TOAST_MS = 3200;
@@ -352,12 +352,21 @@ function render(state) {
   drawn = { ...drawn, screen, selectedId: state.selectedId };
 }
 
+const themeToggle = bindThemeToggle(document.querySelector('[data-theme-toggle]'), {
+  getTheme: () => store.getState().theme,
+  onChange: actions.setTheme,
+  labels: TEXTS.theme,
+  icon,
+});
+
 store.subscribe(render);
+store.subscribe(themeToggle.paint);
 
 document.querySelectorAll('[data-nav]').forEach((element) => element.addEventListener('click', () => navigate(element.dataset.nav)));
 document.querySelectorAll('[data-copy-claude]').forEach((element) => element.addEventListener('click', copyForClaude));
 
 hydrateIcons();
+themeToggle.paint();
 render(store.getState());
 historyController.load();
 restoreSession();

@@ -187,7 +187,7 @@ js/
     formatters.js     %, cuotas, fechas
     store.js          estado + suscripción
     preferences.js    localStorage que nunca lanza
-    theme.js          tema (oscuro, claro o sistema), se elige en Ajustes
+    theme.js          tema (oscuro, claro o sistema): botón sol/luna en la barra superior y opción en Ajustes
     loaderPanel.js    eventos del formulario de carga y tarjeta "Último análisis"
     claudePrompt.js   texto compacto para Claude
     historyController.js  acciones del historial (registrar, liquidar, respaldo)
