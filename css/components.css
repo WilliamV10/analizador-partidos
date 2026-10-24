@@ -2044,3 +2044,62 @@
 .grid--players {
   gap: var(--space-2);
 }
+
+/* ---------- Explorar ---------- */
+
+.explorer__control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.explorer__value {
+  font: 700 32px / 1 var(--font-display);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.dist {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 3px;
+  height: 150px;
+}
+
+.dist__column {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.dist__bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: var(--surface-3);
+}
+
+.dist__column.is-over .dist__bar {
+  background: var(--accent-ink);
+}
+
+.dist__column.is-current .dist__bar {
+  box-shadow: 0 0 0 2px var(--text);
+}
+
+.dist__label {
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dist__column.is-current .dist__label {
+  color: var(--text);
+  font-weight: 700;
+}

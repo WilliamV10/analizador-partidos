@@ -265,6 +265,31 @@ svg {
   opacity: 0.4;
 }
 
+@media (max-width: 380px) {
+  .bottom-nav__item {
+    font-size: 10px;
+  }
+
+  .topbar__actions {
+    gap: 0;
+  }
+
+  .topbar__actions .icon-button {
+    width: 40px;
+  }
+}
+
+@media (max-width: 340px) {
+  .brand__name {
+    display: none;
+  }
+
+  .bottom-nav__item {
+    padding: 0;
+    letter-spacing: -0.02em;
+  }
+}
+
 /* ---------- Escritorio ---------- */
 
 @media (min-width: 900px) {

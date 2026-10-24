@@ -1,0 +1,250 @@
+/**
+ * Explorar: elegir una estadística (goles, corners, tarjetas; total, por equipo o
+ * 1er tiempo) y un valor con el deslizador para ver la probabilidad de exactamente N,
+ * N o más y N o menos. En "Todos los partidos" ordena los partidos por esa probabilidad.
+ *
+ * El deslizador actualiza los resultados en el lugar (sin pasar por el store) para no
+ * cortar el arrastre; al soltarlo se guarda el valor.
+ */
+import {
+  EXPLORER_GROUPS,
+  EXPLORER_STATS,
+  distributionMean,
+  explorerStat,
+  statDistribution,
+  valueProbabilities,
+} from '../../domain/explorer.js';
+import { TEXTS } from '../../texts.js';
+import { card, chips, emptyState, iconButton, kvList, note, pageHead, segmented, stats } from '../components.js';
+import { h, replaceContent } from '../dom.js';
+import { EMPTY, decimal, odds, percent } from '../formatters.js';
+import { namesOf, tournamentLine } from './shared.js';
+
+export const EXPLORER_SCOPES = Object.freeze({ MATCH: 'match', ALL: 'all' });
+
+const fairOdds = (probability) => (probability > 0 ? odds(1 / probability) : EMPTY);
+
+function sideLabel(stat, names) {
+  if (stat.source === 'halfTime' || stat.source === 'cornersFirstHalf') return TEXTS.explorer.firstHalf;
+  if (stat.side === 'home') return names?.home ?? TEXTS.match.home;
+  if (stat.side === 'away') return names?.away ?? TEXTS.match.away;
+  return TEXTS.explorer.total;
+}
+
+/** Valor inicial: el más cercano a lo esperado. */
+function defaultValue(distributions) {
+  const means = distributions.filter(Boolean).map(distributionMean);
+  return means.length ? Math.round(means.reduce((sum, mean) => sum + mean, 0) / means.length) : 0;
+}
+
+/** Barras de la distribución; las de N o más se resaltan. */
+function distributionChart(distribution, value, max) {
+  const shown = distribution.slice(0, max + 1);
+  const top = Math.max(...shown, 0.0001);
+  return h(
+    'div',
+    { class: 'dist', role: 'img', 'aria-label': TEXTS.explorer.chartLabel },
+    shown.map((probability, index) =>
+      h(
+        'div',
+        { class: `dist__column${index >= value ? ' is-over' : ''}${index === value ? ' is-current' : ''}`, title: `${index}: ${percent(probability, 1)}` },
+        h('span', { class: 'dist__bar', style: `height:${((probability / top) * 100).toFixed(1)}%` }),
+        h('span', { class: 'dist__label' }, index === max ? `${index}+` : index),
+      ),
+    ),
+  );
+}
+
+/** Cuotas de la casa para "más de N−0.5" y "menos de N+0.5", si existen. */
+function quoteRows(analysis, stat, value, probabilities) {
+  if (!stat.market) return [];
+  const over = value > 0 ? analysis.quotes.get(stat.market, 'over', value - 0.5) : null;
+  const under = analysis.quotes.get(stat.market, 'under', value + 0.5);
+  return [
+    over ? [TEXTS.explorer.houseOver(value - 0.5), TEXTS.explorer.houseLine(percent(over.fairProbability), odds(over.odds), percent(probabilities.atLeast))] : null,
+    under ? [TEXTS.explorer.houseUnder(value + 0.5), TEXTS.explorer.houseLine(percent(under.fairProbability), odds(under.odds), percent(probabilities.atMost))] : null,
+  ].filter(Boolean);
+}
+
+function matchResults(analysis, stat, value, max) {
+  const distribution = statDistribution(analysis, stat.id);
+  if (!distribution) return emptyState({ title: TEXTS.extra.noData });
+  const probabilities = valueProbabilities(distribution, value);
+  const unit = TEXTS.explorer.units[stat.group];
+  const quotes = quoteRows(analysis, stat, value, probabilities);
+  return [
+    stats(
+      [
+        { value: percent(probabilities.exactly), label: TEXTS.explorer.exactly(value, unit), hint: TEXTS.explorer.fair(fairOdds(probabilities.exactly)) },
+        { value: percent(probabilities.atLeast), label: TEXTS.explorer.atLeast(value, unit), hint: TEXTS.explorer.fair(fairOdds(probabilities.atLeast)), tone: 'accent' },
+        { value: percent(probabilities.atMost), label: TEXTS.explorer.atMost(value, unit), hint: TEXTS.explorer.fair(fairOdds(probabilities.atMost)) },
+      ],
+      3,
+    ),
+    card(
+      { label: TEXTS.explorer.distribution },
+      distributionChart(distribution, value, max),
+      kvList([[TEXTS.explorer.expected, decimal(distributionMean(distribution), 2)], ...quotes]),
+    ),
+  ];
+}
+
+function allMatchesResults(analyses, stat, value, onOpen) {
+  const unit = TEXTS.explorer.units[stat.group];
+  const rows = analyses
+    .map((analysis) => {
+      const distribution = statDistribution(analysis, stat.id);
+      return distribution ? { analysis, distribution, ...valueProbabilities(distribution, value) } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.atLeast - a.atLeast);
+  if (!rows.length) return emptyState({ title: TEXTS.extra.noData });
+  return [
+    note(TEXTS.explorer.rankingHint(value, unit)),
+    h(
+      'ol',
+      { class: 'rank-list' },
+      rows.map((row, index) =>
+        h(
+          'li',
+          {},
+          h(
+            'button',
+            { type: 'button', class: 'rank-item', onClick: () => onOpen(row.analysis.match.id) },
+            h('span', { class: 'rank-item__index' }, index + 1),
+            h(
+              'span',
+              { class: 'rank-item__text' },
+              h('span', { class: 'rank-item__title' }, row.analysis.match.title),
+              h(
+                'span',
+                { class: 'rank-item__sub' },
+                TEXTS.explorer.rowDetail(decimal(distributionMean(row.distribution), 1), percent(row.exactly), value),
+              ),
+            ),
+            h(
+              'span',
+              { class: 'rank-item__side' },
+              h('strong', { class: 'stat__value stat__value--sm tone-accent' }, percent(row.atLeast)),
+              h('span', { class: 'muted' }, TEXTS.explorer.fair(fairOdds(row.atLeast))),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ];
+}
+
+function sliderCard({ value, max, unit, onPreview, onCommit }) {
+  let current = value;
+  const label = h('span', { class: 'explorer__value' }, TEXTS.explorer.valueLabel(current, unit));
+  const input = h('input', {
+    class: 'slider',
+    type: 'range',
+    min: '0',
+    max: String(max),
+    step: '1',
+    value: String(current),
+    'aria-label': TEXTS.explorer.sliderLabel(unit),
+  });
+  const update = (next, commit) => {
+    current = Math.max(0, Math.min(max, next));
+    input.value = String(current);
+    input.style.setProperty('--fill', `${((current / max) * 100).toFixed(1)}%`);
+    label.textContent = TEXTS.explorer.valueLabel(current, unit);
+    onPreview(current);
+    if (commit) onCommit(current);
+  };
+  input.addEventListener('input', () => update(Number(input.value), false));
+  input.addEventListener('change', () => update(Number(input.value), true));
+  input.style.setProperty('--fill', `${((current / max) * 100).toFixed(1)}%`);
+  return card(
+    {},
+    h(
+      'div',
+      { class: 'explorer__control' },
+      iconButton({ icon: 'minus', label: TEXTS.explorer.less, variant: 'icon-button--boxed', onClick: () => update(current - 1, true) }),
+      label,
+      iconButton({ icon: 'plus', label: TEXTS.explorer.more, variant: 'icon-button--boxed', onClick: () => update(current + 1, true) }),
+    ),
+    input,
+  );
+}
+
+function matchSelect(analyses, selectedId, onSelect) {
+  return h(
+    'label',
+    { class: 'field' },
+    h('span', { class: 'eyebrow' }, TEXTS.explorer.match),
+    h(
+      'select',
+      { class: 'input', onChange: (event) => onSelect(event.target.value) },
+      analyses.map((analysis) => h('option', { value: analysis.match.id, selected: analysis.match.id === selectedId }, analysis.match.title)),
+    ),
+  );
+}
+
+/**
+ * @param {Object} state   explorerStat, explorerScope, explorerValue, selectedId, analyses, config
+ * @param {Object} actions setExplorerStat, setExplorerScope, setExplorerValue, selectExplorerMatch
+ */
+export function renderExplorer(state, actions) {
+  const { analyses } = state;
+  const stat = explorerStat(state.explorerStat);
+  const scope = analyses.length > 1 ? state.explorerScope : EXPLORER_SCOPES.MATCH;
+  const analysis = analyses.find((candidate) => candidate.match.id === state.selectedId) ?? analyses[0];
+  const names = scope === EXPLORER_SCOPES.MATCH ? namesOf(analysis.match) : null;
+  const max = state.config.explorer.maxValue[stat.id];
+  const unit = TEXTS.explorer.units[stat.group];
+  const pool = scope === EXPLORER_SCOPES.MATCH ? [analysis] : analyses;
+  const initial = Math.min(max, state.explorerValue ?? defaultValue(pool.map((candidate) => statDistribution(candidate, stat.id))));
+
+  const results = h('div', { class: 'stack', 'aria-live': 'polite' });
+  const draw = (value) =>
+    replaceContent(
+      results,
+      scope === EXPLORER_SCOPES.MATCH ? matchResults(analysis, stat, value, max) : allMatchesResults(analyses, stat, value, actions.selectExplorerMatch),
+    );
+  draw(initial);
+
+  const statsOfGroup = EXPLORER_STATS.filter((candidate) => candidate.group === stat.group);
+  return [
+    pageHead({ eyebrow: tournamentLine(analyses), title: TEXTS.explorer.title }),
+    note(TEXTS.explorer.intro),
+    analyses.length > 1
+      ? segmented(
+          [
+            { id: EXPLORER_SCOPES.MATCH, label: TEXTS.explorer.thisMatch },
+            { id: EXPLORER_SCOPES.ALL, label: TEXTS.explorer.allMatches(analyses.length) },
+          ],
+          scope,
+          actions.setExplorerScope,
+          TEXTS.explorer.scopeLabel,
+        )
+      : null,
+    h(
+      'div',
+      { class: 'grid grid--wide' },
+      h(
+        'div',
+        { class: 'stack' },
+        scope === EXPLORER_SCOPES.MATCH && analyses.length > 1 ? matchSelect(analyses, analysis.match.id, actions.selectExplorerMatch) : null,
+        segmented(
+          EXPLORER_GROUPS.map((group) => ({ id: group, label: TEXTS.explorer.groups[group] })),
+          stat.group,
+          (group) => actions.setExplorerStat(EXPLORER_STATS.find((candidate) => candidate.group === group).id),
+          TEXTS.explorer.groupLabel,
+        ),
+        chips(
+          statsOfGroup.map((candidate) => ({ id: candidate.id, label: sideLabel(candidate, names) })),
+          stat.id,
+          actions.setExplorerStat,
+          TEXTS.explorer.sideLabel,
+        ),
+        sliderCard({ value: initial, max, unit, onPreview: draw, onCommit: actions.setExplorerValue }),
+      ),
+      results,
+    ),
+    note(TEXTS.explorer.method),
+  ];
+}

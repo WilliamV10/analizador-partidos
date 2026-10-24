@@ -21,13 +21,14 @@ import { buildClaudePrompt } from './ui/claudePrompt.js';
 import { replaceContent } from './ui/dom.js';
 import { downloadText } from './ui/download.js';
 import { createHistoryController } from './ui/historyController.js';
-import { hydrateIcons } from './ui/icons.js';
+import { hydrateIcons, icon } from './ui/icons.js';
 import { bindLoader } from './ui/loaderPanel.js';
 import { SCREENS, renderNavigation, resolveScreen } from './ui/navigation.js';
 import { readJsonPreference, removePreference, writeJsonPreference } from './ui/preferences.js';
 import { renderCombo } from './ui/screens/combo.js';
 import { CONTEXT_SCOPES, clearContextInput, contextKey, promptAnalyses, renderContext, showContextValidation } from './ui/screens/context.js';
 import { DAY_FILTERS, renderDay } from './ui/screens/day.js';
+import { EXPLORER_SCOPES, renderExplorer } from './ui/screens/explorer.js';
 import { renderHistory } from './ui/screens/history.js';
 import { DEFAULT_MATCH_TAB, renderMatch } from './ui/screens/match.js';
 import { PLAYER_SIDES } from './ui/screens/matchTabs/players.js';
@@ -35,7 +36,7 @@ import { VALUE_MODES } from './ui/screens/matchTabs/value.js';
 import { renderSettings } from './ui/screens/settings.js';
 import { dayTitle, tournamentLine } from './ui/screens/shared.js';
 import { createStore } from './ui/store.js';
-import { readTheme, setTheme } from './ui/theme.js';
+import { bindThemeToggle, readTheme, setTheme } from './ui/theme.js';
 
 const SETTINGS_STORAGE_KEY = 'analizador.settings';
 const TOAST_MS = 3200;
@@ -63,6 +64,9 @@ const store = createStore({
   dayFilter: DAY_FILTERS.ALL,
   comboRules: { minOdds: initialConfig.combos.minOdds, minTier: initialConfig.combos.minTier, onePerMatch: true },
   contextScope: CONTEXT_SCOPES.REVIEW,
+  explorerStat: 'goals',
+  explorerScope: EXPLORER_SCOPES.MATCH,
+  explorerValue: null,
   config: initialConfig,
   theme: readTheme(),
   settingsRevision: 0,
@@ -187,6 +191,11 @@ const actions = {
   setComboKeys: (comboKeys) => store.setState({ comboKeys }),
   setComboRules: (patch) => store.setState({ comboRules: { ...store.getState().comboRules, ...patch } }),
   setContextScope: (contextScope) => store.setState({ contextScope }),
+  setExplorerStat: (explorerStat) => store.setState({ explorerStat, explorerValue: null }),
+  setExplorerScope: (explorerScope) => store.setState({ explorerScope }),
+  /** Solo guarda el valor: la pantalla ya lo muestra (no se redibuja, ver SCREEN_VIEWS). */
+  setExplorerValue: (explorerValue) => store.setState({ explorerValue }),
+  selectExplorerMatch: (selectedId) => store.setState({ selectedId, explorerScope: EXPLORER_SCOPES.MATCH }),
   betting: historyController.betting,
 
   previewContext(text) {
@@ -286,14 +295,21 @@ async function restoreSession() {
 
 /* ---------- Dibujo ---------- */
 
-/** Cómo se dibuja cada pantalla. `key`: si no cambia, la pantalla no se redibuja (no pierde el foco). */
+/**
+ * Cómo se dibuja cada pantalla. `key`: lista de lo que la pantalla usa; si nada cambió, no se
+ * redibuja (no pierde el foco ni corta el arrastre de un deslizador). Sin `key` se redibuja siempre.
+ */
 const SCREEN_VIEWS = {
   [SCREENS.DAY]: { render: renderDay },
   [SCREENS.MATCH]: { render: renderMatch },
+  [SCREENS.EXPLORE]: {
+    render: renderExplorer,
+    key: (state) => [state.analyses, state.config, state.explorerStat, state.explorerScope, state.selectedId],
+  },
   [SCREENS.COMBO]: { render: renderCombo },
   [SCREENS.CONTEXT]: { render: renderContext },
   [SCREENS.HISTORY]: { render: renderHistory },
-  [SCREENS.SETTINGS]: { render: renderSettings, key: (state) => state.settingsRevision },
+  [SCREENS.SETTINGS]: { render: renderSettings, key: (state) => [state.settingsRevision] },
 };
 
 const roots = {
@@ -304,6 +320,8 @@ const roots = {
 };
 
 let drawn = { screen: null, key: undefined, selectedId: null };
+
+const sameKey = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((value, index) => value === b[index]);
 
 function lastSessionSummary(analyses) {
   if (!analyses.length) return null;
@@ -327,19 +345,28 @@ function render(state) {
   } else {
     const view = SCREEN_VIEWS[screen];
     const key = view.key?.(state);
-    if (changedScreen || key === undefined || key !== drawn.key) replaceContent(roots.view, view.render(state, actions));
+    if (changedScreen || key === undefined || !sameKey(key, drawn.key)) replaceContent(roots.view, view.render(state, actions));
     drawn.key = key;
   }
   if (changedScreen) window.scrollTo({ top: 0 });
   drawn = { ...drawn, screen, selectedId: state.selectedId };
 }
 
+const themeToggle = bindThemeToggle(document.querySelector('[data-theme-toggle]'), {
+  getTheme: () => store.getState().theme,
+  onChange: actions.setTheme,
+  labels: TEXTS.theme,
+  icon,
+});
+
 store.subscribe(render);
+store.subscribe(themeToggle.paint);
 
 document.querySelectorAll('[data-nav]').forEach((element) => element.addEventListener('click', () => navigate(element.dataset.nav)));
 document.querySelectorAll('[data-copy-claude]').forEach((element) => element.addEventListener('click', copyForClaude));
 
 hydrateIcons();
+themeToggle.paint();
 render(store.getState());
 historyController.load();
 restoreSession();
