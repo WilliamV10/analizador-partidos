@@ -40,7 +40,7 @@ Sofascore (navegador)                Página (navegador)                 Claude 
 
 - **v2:** un partido. Imprime el JSON en consola (`copy(JSON.stringify(window._sofa))`).
 - **v4:** varios partidos. Se filtran por `FECHA`, `TORNEO`, `TORNEO_ID`, `HORA` o `IDS` y se descarga un archivo.
-- Si el script se corre otra vez en la misma pestaña da error de `const` ya declarada: hay que recargar con F5.
+- El v4 va dentro de un bloque `{ }`, así que se puede pegar varias veces sin recargar. Hace varias peticiones a la vez (`PETICIONES_A_LA_VEZ`), no repite URLs y, si Sofascore responde 429/403, baja el ritmo, espera y reintenta solo.
 - El endpoint `scheduled-events` devuelve 404. Por eso el script busca los partidos desde los endpoints del torneo.
 
 ---
