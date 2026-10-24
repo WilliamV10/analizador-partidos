@@ -259,6 +259,8 @@ const PETICIONES_A_LA_VEZ = 6; // peticiones simultaneas al inicio (se ajusta so
       jornada: ev.roundInfo?.round, temporadaActual: ev.season?.name, temporadaPasada: prevSeason?.name,
       hora: new Date(ev.startTimestamp * 1000).toLocaleString(), estado: ev.status?.description,
       marcador: `${ev.homeScore?.current ?? '-'}-${ev.awayScore?.current ?? '-'}`, arbitro: ev.referee?.name, estadio: ev.venue?.name,
+      // Historial del arbitro (todas sus competiciones): sirve para el mercado de tarjetas
+      arbitroStats: ev.referee?.games ? { partidos: ev.referee.games, amarillas: ev.referee.yellowCards, rojas: ev.referee.redCards, dobleAmarilla: ev.referee.yellowRedCards } : undefined,
       forma: pre, h2hResumen: h2h?.teamDuel, statsEnVivo: live,
       alineacionesConfirmadas: lu?.confirmed, alineacionLocal: lineupShort(lu?.home), alineacionVisita: lineupShort(lu?.away),
       cuotas: (odds?.markets || []).map(m => {

@@ -22,7 +22,7 @@ function metaLine(match) {
     match.tournament ? h('span', { class: 'match-hero__tournament' }, match.tournament) : null,
     match.round ? h('span', {}, TEXTS.meta.round(match.round)) : null,
     match.venue ? h('span', {}, match.venue) : null,
-    match.referee ? h('span', {}, TEXTS.meta.referee(match.referee)) : null,
+    match.referee ? h('span', {}, TEXTS.meta.referee(match.referee, match.refereeStats)) : null,
   ];
   return h('p', { class: 'match-hero__meta' }, parts);
 }

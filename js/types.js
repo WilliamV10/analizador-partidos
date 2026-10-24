@@ -91,6 +91,15 @@
  */
 
 /**
+ * Historial del árbitro en todas sus competiciones (de Sofascore).
+ * @typedef {Object} RefereeStats
+ * @property {number} games
+ * @property {number} yellows
+ * @property {number} reds
+ * @property {number} yellowsPerGame
+ */
+
+/**
  * @typedef {Object} Match
  * @property {string} id
  * @property {string} source            formato de origen: v2, v3 o v4
@@ -101,6 +110,7 @@
  * @property {string|null} status
  * @property {string|null} score
  * @property {string|null} referee
+ * @property {RefereeStats|null} refereeStats
  * @property {string|null} venue
  * @property {boolean} lineupsConfirmed
  * @property {Team} home

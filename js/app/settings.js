@@ -22,6 +22,8 @@ export const SETTING_GROUPS = Object.freeze([
       { path: 'lambda.marketWeight', kind: 'percent', min: 0, max: 1, step: 0.05 },
       { path: 'lambda.xgWeight', kind: 'percent', min: 0, max: 1, step: 0.05 },
       { path: 'counts.marketWeight', kind: 'percent', min: 0, max: 1, step: 0.05 },
+      { path: 'lambda.multiplicative', kind: 'boolean' },
+      { path: 'poisson.dixonColesRho', kind: 'number', min: -0.2, max: 0, step: 0.01 },
       { path: 'lambda.homeAdvantage', kind: 'number', min: 1, max: 1.4, step: 0.01 },
       { path: 'lambda.awayDisadvantage', kind: 'number', min: 0.6, max: 1, step: 0.01 },
       { path: 'lambda.venueSplitWeight', kind: 'percent', min: 0, max: 0.8, step: 0.05 },
@@ -51,6 +53,8 @@ export const SETTING_GROUPS = Object.freeze([
     id: 'intelligence',
     fields: [
       { path: 'schedule.enabled', kind: 'boolean' },
+      { path: 'recency.enabled', kind: 'boolean' },
+      { path: 'recency.halfLifeDays', kind: 'number', min: 30, max: 365, step: 10 },
       { path: 'absences.enabled', kind: 'boolean' },
       { path: 'absences.replacement', kind: 'percent', min: 0, max: 1, step: 0.05 },
       { path: 'context.maxAdjustment', kind: 'percent', min: 0, max: 0.5, step: 0.05 },

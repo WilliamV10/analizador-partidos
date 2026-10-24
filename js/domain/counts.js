@@ -10,6 +10,9 @@
  * Si la casa da una línea (ej. "Corners 10.5"), el total esperado se mezcla además con
  * el total que implica esa cuota (sin margen), como se hace con los goles: así el modelo
  * no "ve valor" solo porque sus promedios difieren de un mercado que sabe más.
+ *
+ * En tarjetas, el total por estadísticas se mezcla antes con el promedio del árbitro
+ * (más peso cuantos más partidos tenga dirigidos), porque el árbitro decide buena parte.
  */
 import { mean } from '../utils/math.js';
 import { fairProbabilities } from './odds.js';
@@ -71,6 +74,12 @@ export function marketImpliedMean(line, overProbability, dispersion, maxCount) {
   return (low + high) / 2;
 }
 
+/** Peso del promedio del árbitro: partidos / (partidos + previos), con tope. 0 sin árbitro o sin ajuste. */
+function refereeWeightFor(referee, refereeConfig) {
+  if (!refereeConfig || !(referee?.games > 0) || !Number.isFinite(referee.perGame)) return 0;
+  return Math.min(refereeConfig.maxWeight, referee.games / (referee.games + refereeConfig.priorGames));
+}
+
 /** Línea de la casa más pareja (la de mejor información) y su total implícito. */
 function marketTotal(markets, statConfig, maxCount) {
   const candidates = (markets ?? [])
@@ -91,6 +100,7 @@ function marketTotal(markets, statConfig, maxCount) {
  * @property {{ home: number, away: number, total: number }} expected
  * @property {number|null} statsTotal   total esperado solo por estadísticas
  * @property {number|null} marketTotal  total que implica la cuota de la casa
+ * @property {{ perGame: number, games: number, weight: number }|null} referee  árbitro usado (tarjetas)
  * @property {Record<number, import('./empirical.js').Estimate>} total
  * @property {Record<number, import('./empirical.js').Estimate>} home
  * @property {Record<number, import('./empirical.js').Estimate>} away
@@ -104,6 +114,7 @@ function marketTotal(markets, statConfig, maxCount) {
  * @param {{ venueRows: Object[], recentRows: Object[] }} params.away  visita (venue = fuera)
  * @param {number} [params.extra]  ajuste sumado al total esperado (contexto de Claude)
  * @param {Object[]} [params.markets]   mercados canónicos de esta estadística (para el total implícito)
+ * @param {{ perGame: number, games: number }|null} [params.referee]  promedio del árbitro (solo tarjetas)
  * @param {number[]} params.lines       líneas del total
  * @param {number[]} params.teamLines   líneas por equipo
  * @param {{ dispersion: number }} params.statConfig
@@ -111,20 +122,22 @@ function marketTotal(markets, statConfig, maxCount) {
  * @param {typeof import('../config.js').CONFIG.empirical} params.empiricalConfig
  * @returns {CountModel|null}  null si no hay datos de esa estadística
  */
-export function countModel({ stat, home, away, extra = 0, markets = [], lines, teamLines, statConfig, config, empiricalConfig }) {
+export function countModel({ stat, home, away, extra = 0, markets = [], referee = null, lines, teamLines, statConfig, config, empiricalConfig }) {
   const homeRows = rowsWithStat(home, stat, config.minVenueSample);
   const awayRows = rowsWithStat(away, stat, config.minVenueSample);
   const homeMean = mean([mean(homeRows.map(statFor(stat))), mean(awayRows.map(statAgainst(stat)))]);
   const awayMean = mean([mean(awayRows.map(statFor(stat))), mean(homeRows.map(statAgainst(stat)))]);
   if (homeMean === null || awayMean === null) return null;
 
-  const statsTotal = homeMean + awayMean;
+  const teamsTotal = homeMean + awayMean;
+  const refereeWeight = refereeWeightFor(referee, statConfig.referee);
+  const statsTotal = (1 - refereeWeight) * teamsTotal + refereeWeight * (referee?.perGame ?? 0);
   const impliedTotal = marketTotal(markets, statConfig, config.maxCount);
   const marketWeight = config.marketWeight ?? 0;
   const baseTotal =
     impliedTotal === null ? statsTotal : marketWeight * impliedTotal + (1 - marketWeight) * statsTotal;
   const total = Math.max(0, baseTotal + extra);
-  const scale = statsTotal > 0 ? total / statsTotal : 1;
+  const scale = teamsTotal > 0 ? total / teamsTotal : 1;
   const expected = { home: homeMean * scale, away: awayMean * scale, total };
   const distribution = (average) => countVector(average, statConfig.dispersion, config.maxCount);
   const totalOf = (row) => row.stats[stat].for + row.stats[stat].against;
@@ -133,6 +146,7 @@ export function countModel({ stat, home, away, extra = 0, markets = [], lines, t
     expected,
     statsTotal,
     marketTotal: impliedTotal,
+    referee: refereeWeight > 0 ? { perGame: referee.perGame, games: referee.games, weight: refereeWeight } : null,
     total: lineEstimates(lines, distribution(expected.total), (line) => [
       overRate(homeRows, totalOf, line),
       overRate(awayRows, totalOf, line),

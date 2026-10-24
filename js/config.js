@@ -25,6 +25,11 @@ export const CONFIG = deepFreeze({
     marketWeight: 0.6,
     /** Peso del xG frente a los goles reales al medir ataque y defensa (el xG tiene menos ruido). */
     xgWeight: 0.65,
+    /**
+     * true: goles esperados = ataque × defensa rival ÷ media de la liga (la media sale de la tabla).
+     * false: promedio de ataque y defensa. Sin tabla se usa siempre el promedio.
+     */
+    multiplicative: true,
     /** Multiplicadores de localía aplicados al cálculo estadístico global. */
     homeAdvantage: 1.1,
     awayDisadvantage: 0.9,
@@ -39,6 +44,17 @@ export const CONFIG = deepFreeze({
   },
   poisson: {
     maxGoals: 10,
+    /**
+     * Corrección de Dixon-Coles: < 0 sube el 0-0 y el 1-1 y baja el 1-0 y el 0-1
+     * (los estudios dan entre −0.05 y −0.13). 0 = Poisson independiente.
+     */
+    dixonColesRho: -0.08,
+  },
+  recency: {
+    /** Peso por antigüedad en los λ por estadísticas. */
+    enabled: true,
+    /** Días tras los que un partido pesa la mitad. */
+    halfLifeDays: 120,
   },
   empirical: {
     /**
@@ -124,7 +140,13 @@ export const CONFIG = deepFreeze({
     /** dispersión = varianza / media (1 = Poisson). */
     corners: { dispersion: 1.3, lines: [7.5, 8.5, 9.5, 10.5, 11.5, 12.5], teamLines: [2.5, 3.5, 4.5, 5.5, 6.5] },
     cornersFirstHalf: { dispersion: 1.3, lines: [3.5, 4.5, 5.5], teamLines: [1.5, 2.5, 3.5] },
-    yellows: { dispersion: 1.4, lines: [2.5, 3.5, 4.5, 5.5, 6.5], teamLines: [0.5, 1.5, 2.5, 3.5] },
+    yellows: {
+      dispersion: 1.4,
+      lines: [2.5, 3.5, 4.5, 5.5, 6.5],
+      teamLines: [0.5, 1.5, 2.5, 3.5],
+      /** Mezcla con el promedio del árbitro: peso = partidos / (partidos + priorGames), máximo maxWeight. */
+      referee: { maxWeight: 0.35, priorGames: 40 },
+    },
   },
   players: {
     /** Minutos esperados según el estado en la alineación. */

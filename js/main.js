@@ -14,6 +14,7 @@ import { TIERS } from './domain/value.js';
 import { openHistoryStore } from './io/historyDb.js';
 import { ImportError } from './io/importError.js';
 import { readTextFiles } from './io/fileReader.js';
+import { clearSession, loadSession, saveSession, saveSessionContext } from './io/sessionStore.js';
 import { TEXTS } from './texts.js';
 import { bindBetDialog } from './ui/betDialog.js';
 import { buildClaudePrompt } from './ui/claudePrompt.js';
@@ -122,6 +123,19 @@ historyToggle.addEventListener('click', () => {
   window.scrollTo({ top: 0 });
 });
 
+/** Importa y analiza los JSON; devuelve los análisis (lanza si los datos no sirven). */
+function loadSources(sources, mode, contexts = []) {
+  const matches = importMatches(sources, mode);
+  return analyze({
+    matches,
+    config: store.getState().config,
+    contexts,
+    selectedId: matches[0]?.id ?? null,
+    view: matches.length > 1 ? VIEWS.DAY : VIEWS.MATCH,
+    matchTab: DEFAULT_MATCH_TAB,
+  });
+}
+
 const loader = bindLoader(document.getElementById('loader'), {
   async onAnalyze({ pastedText, files, mode }) {
     try {
@@ -129,15 +143,8 @@ const loader = bindLoader(document.getElementById('loader'), {
         ...(pastedText.trim() ? [{ name: TEXTS.loader.pastedSource, text: pastedText }] : []),
         ...(await readTextFiles(files)),
       ];
-      const matches = importMatches(sources, mode);
-      const analyses = analyze({
-        matches,
-        config: store.getState().config,
-        contexts: [],
-        selectedId: matches[0]?.id ?? null,
-        view: matches.length > 1 ? VIEWS.DAY : VIEWS.MATCH,
-        matchTab: DEFAULT_MATCH_TAB,
-      });
+      const analyses = loadSources(sources, mode);
+      saveSession({ sources, mode, contextText: null, savedAt: Date.now() });
       loader.showStatus(TEXTS.loader.loaded(analyses.length), 'success');
       loader.collapse(TEXTS.loader.summary(analyses));
       contextPanel.setSummary(null);
@@ -149,6 +156,9 @@ const loader = bindLoader(document.getElementById('loader'), {
   },
   onClear() {
     store.setState(EMPTY_RESULTS);
+    clearSession();
+    contextPanel.setSummary(null);
+    contextPanel.showStatus('');
   },
 });
 
@@ -171,6 +181,7 @@ const contextPanel = bindContextPanel(document.getElementById('context-panel'), 
         return;
       }
       const message = TEXTS.contextPanel.applied(matched, analyses.length);
+      saveSessionContext(text);
       contextPanel.showStatus(message, 'success');
       contextPanel.setSummary(message);
     } catch (error) {
@@ -179,6 +190,7 @@ const contextPanel = bindContextPanel(document.getElementById('context-panel'), 
   },
   onClear() {
     reanalyze({ contexts: [] });
+    saveSessionContext(null);
     contextPanel.showStatus(TEXTS.contextPanel.cleared, 'success');
     contextPanel.setSummary(null);
   },
@@ -218,3 +230,24 @@ store.subscribe((state) => {
 });
 
 historyController.load();
+
+/** Si había datos cargados antes de cerrar la página, se vuelven a analizar (con su bloque de Claude). */
+async function restoreSession() {
+  const session = await loadSession();
+  if (!session) return;
+  try {
+    const contexts = session.contextText ? importContext(session.contextText, TEXTS.context.title) : [];
+    const analyses = loadSources(session.sources, session.mode, contexts);
+    loader.showStatus(TEXTS.loader.restored(analyses.length, session.savedAt), 'success');
+    loader.collapse(TEXTS.loader.summary(analyses));
+    if (contexts.length) {
+      const matched = analyses.filter((analysis) => analysis.context).length;
+      contextPanel.setSummary(TEXTS.contextPanel.applied(matched, analyses.length));
+    }
+  } catch {
+    store.setState(EMPTY_RESULTS);
+    clearSession();
+  }
+}
+
+restoreSession();

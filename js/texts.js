@@ -31,6 +31,9 @@ export const TEXTS = Object.freeze({
       return tournaments.length ? `${count} · ${tournaments.join(', ')}` : count;
     },
     filesSelected: (names) => `Archivos: ${names.join(', ')}`,
+    restored: (count, savedAt) =>
+      `Se recuperó la última carga (${count} ${plural(count, 'partido', 'partidos')}, ${new Date(savedAt).toLocaleString()}). ` +
+      'Usa «Limpiar» para borrarla o carga otros datos para reemplazarla.',
     working: 'Analizando…',
   },
   views: {
@@ -281,7 +284,8 @@ export const TEXTS = Object.freeze({
   },
   meta: {
     round: (round) => `Jornada ${round}`,
-    referee: (name) => `Árbitro: ${name}`,
+    referee: (name, stats) =>
+      `Árbitro: ${name}${stats ? ` (${stats.yellowsPerGame.toFixed(1)} amarillas por partido en ${stats.games})` : ''}`,
     position: (position) => `${position}° en la tabla`,
     versus: 'vs',
     expectedGoalsTitle: 'Goles esperados (final)',
@@ -418,6 +422,8 @@ export const TEXTS = Object.freeze({
       'lambda.marketWeight': 'Peso de las cuotas en los goles esperados',
       'lambda.xgWeight': 'Peso del xG frente a los goles reales',
       'counts.marketWeight': 'Peso de las cuotas en corners y tarjetas',
+      'lambda.multiplicative': 'Goles esperados = ataque × defensa ÷ media de la liga',
+      'poisson.dixonColesRho': 'Corrección de empates bajos (Dixon-Coles, 0 = sin corrección)',
       'lambda.homeAdvantage': 'Ventaja de local (multiplicador)',
       'lambda.awayDisadvantage': 'Desventaja de visita (multiplicador)',
       'lambda.venueSplitWeight': 'Peso de casa/fuera en las estadísticas',
@@ -432,6 +438,8 @@ export const TEXTS = Object.freeze({
       'combos.minOdds': 'Cuota mínima por selección',
       'combos.maxSelections': 'Máximo de selecciones',
       'schedule.enabled': 'Ajustar por fuerza del rival (calendario)',
+      'recency.enabled': 'Dar más peso a los partidos recientes',
+      'recency.halfLifeDays': 'Días tras los que un partido pesa la mitad',
       'absences.enabled': 'Restar goles por bajas importantes',
       'absences.replacement': 'Aporte que recupera el reemplazo',
       'context.maxAdjustment': 'Tope de cada ajuste de Claude',
