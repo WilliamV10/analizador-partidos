@@ -197,17 +197,31 @@ export const TEXTS = Object.freeze({
   confidenceTier: { alta: 'high', media: 'medium', baja: 'low' },
   explorer: {
     title: 'Explorar',
-    intro: 'Elige qué mirar y mueve el deslizador: probabilidad de exactamente N, N o más y N o menos.',
+    intro:
+      'Elige qué mirar y mueve el deslizador: probabilidad de exactamente N, N o más y N o menos. ' +
+      'En «Ambos» ves la probabilidad de que los dos equipos anoten.',
     thisMatch: 'Este partido',
     allMatches: (count) => `Todos · ${count}`,
     scopeLabel: 'Un partido o todos',
     match: 'Partido',
-    groups: { goals: 'Goles', corners: 'Corners', cards: 'Tarjetas' },
+    groups: { goals: 'Goles', corners: 'Corners', cards: 'Tarjetas', btts: 'Ambos' },
     groupLabel: 'Estadística',
     sideLabel: 'De quién',
     total: 'Total',
     firstHalf: '1er tiempo',
-    units: { goals: ['gol', 'goles'], corners: ['corner', 'corners'], cards: ['tarjeta', 'tarjetas'] },
+    units: { goals: ['gol', 'goles'], corners: ['corner', 'corners'], cards: ['tarjeta', 'tarjetas'], btts: ['', ''] },
+    bttsYes: 'Ambos anotan: Sí',
+    bttsNo: 'Ambos anotan: No',
+    bttsDetail: 'Ambos anotan · detalle',
+    houseYes: 'Casa · Sí',
+    houseNo: 'Casa · No',
+    bttsModel: 'Modelo (Poisson)',
+    bttsReal: 'Lo ocurrido',
+    bttsRealValue: (rate, n) => `${rate} en ${n} partidos`,
+    bttsAndOver: 'Ambos anotan y más de 2.5',
+    bttsFirstHalf: 'Ambos anotan en el 1er tiempo',
+    bttsRankingHint: 'Partidos ordenados por la probabilidad de que ambos anoten. Toca uno para ver el detalle.',
+    bttsRowDetail: (home, away, house) => `Local anota ${home} · visita anota ${away}${house ? ` · casa ${house}` : ''}`,
     valueLabel: (value, [singular, pluralForm]) => `${value} ${plural(value, singular, pluralForm)}`,
     sliderLabel: ([, pluralForm]) => `Cantidad de ${pluralForm}`,
     less: 'Uno menos',
@@ -227,7 +241,8 @@ export const TEXTS = Object.freeze({
     rowDetail: (mean, exactly, value) => `Esperado ${mean} · exactamente ${value}: ${exactly}`,
     method:
       'Goles: la grilla final del modelo. Corners y tarjetas: binomial negativa con el esperado final (ya mezclado con la cuota). ' +
-      'No incluye la mezcla con lo ocurrido realmente de las pestañas Valor y Mercados: puede diferir uno o dos puntos.',
+      'No incluye la mezcla con lo ocurrido realmente de las pestañas Valor y Mercados: puede diferir uno o dos puntos. ' +
+      'Ambos anotan (Sí/No, cada equipo anota) sí usa la probabilidad final, la misma de esas pestañas.',
   },
   extra: {
     halfTime: 'Primer tiempo',

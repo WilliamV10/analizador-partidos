@@ -3,14 +3,18 @@
  * 1er tiempo) y un valor con el deslizador para ver la probabilidad de exactamente N,
  * N o más y N o menos. En "Todos los partidos" ordena los partidos por esa probabilidad.
  *
+ * "Ambos anotan" es de sí/no: no lleva deslizador y muestra su propio desglose.
+ *
  * El deslizador actualiza los resultados en el lugar (sin pasar por el store) para no
  * cortar el arrastre; al soltarlo se guarda el valor.
  */
 import {
   EXPLORER_GROUPS,
   EXPLORER_STATS,
+  bttsBreakdown,
   distributionMean,
   explorerStat,
+  isBinaryStat,
   statDistribution,
   valueProbabilities,
 } from '../../domain/explorer.js';
@@ -135,6 +139,82 @@ function allMatchesResults(analyses, stat, value, onOpen) {
   ];
 }
 
+/* ---------- Ambos anotan ---------- */
+
+function bttsMatchResults(analysis) {
+  const names = namesOf(analysis.match);
+  const btts = bttsBreakdown(analysis);
+  const yesQuote = analysis.quotes.get('btts', 'yes');
+  const noQuote = analysis.quotes.get('btts', 'no');
+  const houseLine = (quote, mine) => (quote ? TEXTS.explorer.houseLine(percent(quote.fairProbability), odds(quote.odds), percent(mine)) : EMPTY);
+  return [
+    stats(
+      [
+        { value: percent(btts.yes), label: TEXTS.explorer.bttsYes, hint: TEXTS.explorer.fair(fairOdds(btts.yes)), tone: 'accent' },
+        { value: percent(1 - btts.yes), label: TEXTS.explorer.bttsNo, hint: TEXTS.explorer.fair(fairOdds(1 - btts.yes)) },
+      ],
+      2,
+    ),
+    card(
+      { label: TEXTS.explorer.bttsDetail },
+      kvList([
+        [TEXTS.explorer.houseYes, houseLine(yesQuote, btts.yes)],
+        [TEXTS.explorer.houseNo, houseLine(noQuote, 1 - btts.yes)],
+        [TEXTS.explorer.bttsModel, percent(btts.model)],
+        [TEXTS.explorer.bttsReal, btts.empirical === null ? EMPTY : TEXTS.explorer.bttsRealValue(percent(btts.empirical), Math.round(btts.n))],
+        [TEXTS.goalRows.homeScores(names), percent(btts.homeScores)],
+        [TEXTS.goalRows.awayScores(names), percent(btts.awayScores)],
+      ]),
+    ),
+    stats(
+      [
+        { value: percent(btts.yesAndOver25), label: TEXTS.explorer.bttsAndOver, hint: TEXTS.explorer.fair(fairOdds(btts.yesAndOver25)) },
+        { value: percent(btts.firstHalf), label: TEXTS.explorer.bttsFirstHalf, hint: TEXTS.explorer.fair(fairOdds(btts.firstHalf)) },
+      ],
+      2,
+    ),
+  ];
+}
+
+function bttsAllResults(analyses, onOpen) {
+  const rows = analyses.map((analysis) => ({ analysis, btts: bttsBreakdown(analysis) })).sort((a, b) => b.btts.yes - a.btts.yes);
+  return [
+    note(TEXTS.explorer.bttsRankingHint),
+    h(
+      'ol',
+      { class: 'rank-list' },
+      rows.map(({ analysis, btts }, index) => {
+        const quote = analysis.quotes.get('btts', 'yes');
+        return h(
+          'li',
+          {},
+          h(
+            'button',
+            { type: 'button', class: 'rank-item', onClick: () => onOpen(analysis.match.id) },
+            h('span', { class: 'rank-item__index' }, index + 1),
+            h(
+              'span',
+              { class: 'rank-item__text' },
+              h('span', { class: 'rank-item__title' }, analysis.match.title),
+              h(
+                'span',
+                { class: 'rank-item__sub' },
+                TEXTS.explorer.bttsRowDetail(percent(btts.homeScores), percent(btts.awayScores), quote ? percent(quote.fairProbability) : null),
+              ),
+            ),
+            h(
+              'span',
+              { class: 'rank-item__side' },
+              h('strong', { class: 'stat__value stat__value--sm tone-accent' }, percent(btts.yes)),
+              h('span', { class: 'muted' }, TEXTS.explorer.fair(fairOdds(btts.yes))),
+            ),
+          ),
+        );
+      }),
+    ),
+  ];
+}
+
 function sliderCard({ value, max, unit, onPreview, onCommit }) {
   let current = value;
   const label = h('span', { class: 'explorer__value' }, TEXTS.explorer.valueLabel(current, unit));
@@ -194,17 +274,23 @@ export function renderExplorer(state, actions) {
   const scope = analyses.length > 1 ? state.explorerScope : EXPLORER_SCOPES.MATCH;
   const analysis = analyses.find((candidate) => candidate.match.id === state.selectedId) ?? analyses[0];
   const names = scope === EXPLORER_SCOPES.MATCH ? namesOf(analysis.match) : null;
-  const max = state.config.explorer.maxValue[stat.id];
+  const binary = isBinaryStat(stat);
+  const max = binary ? 0 : state.config.explorer.maxValue[stat.id];
   const unit = TEXTS.explorer.units[stat.group];
   const pool = scope === EXPLORER_SCOPES.MATCH ? [analysis] : analyses;
-  const initial = Math.min(max, state.explorerValue ?? defaultValue(pool.map((candidate) => statDistribution(candidate, stat.id))));
+  const initial = binary ? 0 : Math.min(max, state.explorerValue ?? defaultValue(pool.map((candidate) => statDistribution(candidate, stat.id))));
 
   const results = h('div', { class: 'stack', 'aria-live': 'polite' });
-  const draw = (value) =>
+  const draw = (value) => {
+    if (binary) {
+      replaceContent(results, scope === EXPLORER_SCOPES.MATCH ? bttsMatchResults(analysis) : bttsAllResults(analyses, actions.selectExplorerMatch));
+      return;
+    }
     replaceContent(
       results,
       scope === EXPLORER_SCOPES.MATCH ? matchResults(analysis, stat, value, max) : allMatchesResults(analyses, stat, value, actions.selectExplorerMatch),
     );
+  };
   draw(initial);
 
   const statsOfGroup = EXPLORER_STATS.filter((candidate) => candidate.group === stat.group);
@@ -235,13 +321,15 @@ export function renderExplorer(state, actions) {
           (group) => actions.setExplorerStat(EXPLORER_STATS.find((candidate) => candidate.group === group).id),
           TEXTS.explorer.groupLabel,
         ),
-        chips(
-          statsOfGroup.map((candidate) => ({ id: candidate.id, label: sideLabel(candidate, names) })),
-          stat.id,
-          actions.setExplorerStat,
-          TEXTS.explorer.sideLabel,
-        ),
-        sliderCard({ value: initial, max, unit, onPreview: draw, onCommit: actions.setExplorerValue }),
+        statsOfGroup.length > 1
+          ? chips(
+              statsOfGroup.map((candidate) => ({ id: candidate.id, label: sideLabel(candidate, names) })),
+              stat.id,
+              actions.setExplorerStat,
+              TEXTS.explorer.sideLabel,
+            )
+          : null,
+        binary ? null : sliderCard({ value: initial, max, unit, onPreview: draw, onCommit: actions.setExplorerValue }),
       ),
       results,
     ),

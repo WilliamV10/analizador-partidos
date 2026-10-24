@@ -1966,6 +1966,11 @@
 /* ---------- Ajustes de pantallas pequeñas ---------- */
 
 @media (max-width: 380px) {
+  .segmented__option {
+    padding: 0 var(--space-1);
+    font-size: var(--text-md);
+  }
+
   .display {
     font-size: 23px;
   }
