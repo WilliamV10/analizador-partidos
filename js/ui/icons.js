@@ -37,6 +37,7 @@ const ICONS = {
   restore: [['path', { d: 'M4 12a8 8 0 1 0 2.4-5.7L4 8.5' }], ['path', { d: 'M4 4v4.5h4.5M12 8v4l3 2' }]],
   arrow: [['path', { d: 'M5 12h14M13 6l6 6-6 6' }]],
   edit: [['path', { d: 'M4 20h4L19 9l-4-4L4 16Z' }]],
+  chart: [['path', { d: 'M4 20h16' }], ['path', { d: 'M7 16v-5M12 16V6M17 16v-8' }]],
   search: [['circle', { cx: '11', cy: '11', r: '6.5' }], ['path', { d: 'm16 16 4 4' }]],
   theme: [['circle', { cx: '12', cy: '12', r: '8.5' }], ['path', { d: 'M12 3.5v17A8.5 8.5 0 0 0 12 3.5Z', fill: 'currentColor' }]],
 };

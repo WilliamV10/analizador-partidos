@@ -15,6 +15,7 @@ export const TEXTS = Object.freeze({
   nav: {
     day: 'Día',
     match: 'Partido',
+    explore: 'Explorar',
     combo: 'Combinada',
     context: 'Contexto',
     history: 'Historial',
@@ -195,6 +196,40 @@ export const TEXTS = Object.freeze({
     noneApplied: 'Todavía no hay contexto aplicado. Copia el resumen, pégalo en el chat con Claude y trae su bloque.',
   },
   confidenceTier: { alta: 'high', media: 'medium', baja: 'low' },
+  explorer: {
+    title: 'Explorar',
+    intro: 'Elige qué mirar y mueve el deslizador: probabilidad de exactamente N, N o más y N o menos.',
+    thisMatch: 'Este partido',
+    allMatches: (count) => `Todos · ${count}`,
+    scopeLabel: 'Un partido o todos',
+    match: 'Partido',
+    groups: { goals: 'Goles', corners: 'Corners', cards: 'Tarjetas' },
+    groupLabel: 'Estadística',
+    sideLabel: 'De quién',
+    total: 'Total',
+    firstHalf: '1er tiempo',
+    units: { goals: ['gol', 'goles'], corners: ['corner', 'corners'], cards: ['tarjeta', 'tarjetas'] },
+    valueLabel: (value, [singular, pluralForm]) => `${value} ${plural(value, singular, pluralForm)}`,
+    sliderLabel: ([, pluralForm]) => `Cantidad de ${pluralForm}`,
+    less: 'Uno menos',
+    more: 'Uno más',
+    exactly: (value, [singular, pluralForm]) => `Exactamente ${value} ${plural(value, singular, pluralForm)}`,
+    atLeast: (value, [singular, pluralForm]) => `${value} ${plural(value, singular, pluralForm)} o más`,
+    atMost: (value, [singular, pluralForm]) => `${value} ${plural(value, singular, pluralForm)} o menos`,
+    fair: (odds) => `cuota justa ${odds}`,
+    distribution: 'Distribución',
+    chartLabel: 'Probabilidad de cada cantidad; resaltadas las que cumplen "o más"',
+    expected: 'Esperado',
+    houseOver: (line) => `Casa · más de ${line}`,
+    houseUnder: (line) => `Casa · menos de ${line}`,
+    houseLine: (fair, odds, mine) => `${fair} @ ${odds} (mío ${mine})`,
+    rankingHint: (value, [singular, pluralForm]) =>
+      `Partidos ordenados por la probabilidad de ${value} ${plural(value, singular, pluralForm)} o más. Toca uno para verlo en detalle.`,
+    rowDetail: (mean, exactly, value) => `Esperado ${mean} · exactamente ${value}: ${exactly}`,
+    method:
+      'Goles: la grilla final del modelo. Corners y tarjetas: binomial negativa con el esperado final (ya mezclado con la cuota). ' +
+      'No incluye la mezcla con lo ocurrido realmente de las pestañas Valor y Mercados: puede diferir uno o dos puntos.',
+  },
   extra: {
     halfTime: 'Primer tiempo',
     halfTimeNote: ({ share, sample }) =>

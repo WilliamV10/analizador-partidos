@@ -190,6 +190,22 @@ export const CONFIG = deepFreeze({
     /** Monto por defecto al registrar una apuesta (unidades). */
     defaultStake: 1,
   },
+  explorer: {
+    /** Valor máximo del deslizador de cada estadística en la pantalla Explorar. */
+    maxValue: {
+      goals: 8,
+      goalsHome: 6,
+      goalsAway: 6,
+      goalsFirstHalf: 5,
+      corners: 20,
+      cornersHome: 14,
+      cornersAway: 14,
+      cornersFirstHalf: 10,
+      cards: 10,
+      cardsHome: 7,
+      cardsAway: 7,
+    },
+  },
   display: {
     goalLines: [0.5, 1.5, 2.5, 3.5, 4.5, 5.5],
     topScores: 8,

@@ -172,7 +172,8 @@ js/
     selections.js     Outcome de cada selección de cada mercado
     value.js          EV, probabilidad justa, nivel de confianza
     ranking.js        ranking global de picks con filtros
-    combos.js         combinadas automáticas
+    combos.js         combinadas: candidatos, precio y sugeridas
+    explorer.js       distribución de goles, corners y tarjetas para la pantalla Explorar
     history.js        registros del historial (predicciones y apuestas), unión y pendientes
     settlement.js     liquidación con el resultado real y cuota de cierre
     performance.js    ganancia, ROI, acierto, CLV y calibración
@@ -194,7 +195,7 @@ js/
     resultsScriptSource.js  script de consola de resultados (función autosuficiente, se pasa a texto)
     resultsScript.js  arma ese script con los ids pendientes
     download.js       descargar un texto como archivo
-    screens/          una pantalla por archivo: day, match, combo, context, settings, history
+    screens/          una pantalla por archivo: day, match, explorer, combo, context, settings, history
                       shared.js (nombres, mejor pick, tarjeta de partido)
       matchTabs/      pestañas del partido: summary, value, markets, counts, players, teams
 tests/              node --test (sin dependencias), fixtures sintéticos en tests/fixtures
@@ -204,7 +205,8 @@ docs/CONTEXTO.md    este archivo
 
 ### Interfaz
 
-- **Pantallas** (`ui/navigation.js`): Día · Partido · Combinada · Contexto · Historial · Ajustes, más la de carga. En el celular van en la barra inferior; en escritorio (≥ 900 px) en la barra superior, y el partido se ve con la lista del día al costado. Sin partidos cargados, las de análisis muestran la carga.
+- **Pantallas** (`ui/navigation.js`): Día · Partido · Explorar · Combinada · Contexto · Historial · Ajustes, más la de carga. En el celular van en la barra inferior (6 lugares; Historial se abre con su ícono de la barra superior); en escritorio (≥ 900 px) en la barra superior, y el partido se ve con la lista del día al costado.
+- **Explorar:** se elige goles, corners o tarjetas (total, local, visita o 1er tiempo) y un valor N con el deslizador: probabilidad de exactamente N, N o más y N o menos, con su cuota justa, la distribución completa y la cuota de la casa si existe esa línea. En "Todos" ordena los partidos por la probabilidad de N o más. El cálculo está en `domain/explorer.js` (grilla final para goles; binomial negativa con el esperado final para corners y tarjetas; sin la mezcla con lo ocurrido). Los topes del deslizador están en `config.explorer.maxValue`. El deslizador actualiza los resultados en el lugar y la pantalla no se redibuja mientras se mueve. Sin partidos cargados, las de análisis muestran la carga.
 - **Cómo se dibuja:** `main.js` guarda todo en el store; cada cambio redibuja la pantalla activa con su función de `ui/screens/`. Ajustes solo se redibuja al entrar, al restaurar o al cambiar el tema (así los deslizadores no pierden el foco). El formulario de carga y los cuadros de texto de contexto y resultados son nodos fijos: no pierden lo pegado.
 - **Para agregar algo:** una pantalla = archivo en `ui/screens/` + entrada en `navigation.js` y `SCREEN_VIEWS` (main.js). Una pestaña del partido = archivo en `ui/screens/matchTabs/` + entrada en `MATCH_TABS` (match.js). Un color o medida = token en `tokens.css`. Un texto = `texts.js`.
 - **Combinada:** el usuario la arma (o parte de una sugerida) con reglas propias (cuota mínima, nivel, un pick por partido) y la copia como texto. `domain/combos.js` da los candidatos y el precio.
@@ -212,7 +214,7 @@ docs/CONTEXTO.md    este archivo
 - **Historial:** pantalla aparte, disponible aunque no haya partidos cargados (ver §9 bis). `io/historyDb.js` guarda en IndexedDB.
 - **Última carga:** `io/sessionStore.js` guarda en IndexedDB (base `analizador-sesion`) los JSON tal como se subieron, el modo y el bloque de Claude. Al abrir la página se vuelven a analizar solos. «Limpiar» la borra y cargar otros datos la reemplaza.
 - **Pestañas del partido:** Resumen (avisos, probabilidad final, goles esperados, marcadores, mejor pick, claves, contexto) · Valor (tarjetas Mi prob. vs Casa, filtros por mercado, "+" para registrar) · Mercados (resultado, goles, quién anota, hándicap, medio tiempo y primer gol) · Corners y tarjetas (esperado, línea de la casa, partidos contra la línea, todas las líneas) · Jugadores (1+ y 2+ a puerta, quién no empieza) · Equipos y H2H (bloques, últimos resultados, H2H, XI y bajas).
-- Responsive sin desbordes: probado a 360, 390, 768 y 1440 px. Las tablas largas tienen scroll propio.
+- Responsive sin desbordes: probado a 320, 360, 390, 768 y 1440 px. Las tablas largas tienen scroll propio.
 
 ### Reglas de código limpio (obligatorias)
 

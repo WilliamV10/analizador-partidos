@@ -10,6 +10,7 @@ export const SCREENS = Object.freeze({
   LOAD: 'load',
   DAY: 'day',
   MATCH: 'match',
+  EXPLORE: 'explore',
   COMBO: 'combo',
   CONTEXT: 'context',
   HISTORY: 'history',
@@ -18,15 +19,17 @@ export const SCREENS = Object.freeze({
 
 /**
  * `needsData`: sin partidos cargados, la sección muestra la pantalla de carga.
- * `desktop`: false = solo en la barra inferior (en escritorio el partido vive dentro de "Día").
+ * `desktop` / `mobile`: en qué barra aparece. En escritorio el partido vive dentro de "Día";
+ * en el celular el historial se abre desde el ícono de la barra superior (la inferior tiene 6 lugares).
  */
 const NAV_ITEMS = [
-  { id: SCREENS.DAY, icon: 'day', needsData: true, desktop: true },
-  { id: SCREENS.MATCH, icon: 'match', needsData: true, desktop: false },
-  { id: SCREENS.COMBO, icon: 'combo', needsData: true, desktop: true },
-  { id: SCREENS.CONTEXT, icon: 'context', needsData: true, desktop: true },
-  { id: SCREENS.HISTORY, icon: 'history', needsData: false, desktop: true },
-  { id: SCREENS.SETTINGS, icon: 'settings', needsData: false, desktop: true },
+  { id: SCREENS.DAY, icon: 'day', needsData: true, desktop: true, mobile: true },
+  { id: SCREENS.MATCH, icon: 'match', needsData: true, desktop: false, mobile: true },
+  { id: SCREENS.EXPLORE, icon: 'chart', needsData: true, desktop: true, mobile: true },
+  { id: SCREENS.COMBO, icon: 'combo', needsData: true, desktop: true, mobile: true },
+  { id: SCREENS.CONTEXT, icon: 'context', needsData: true, desktop: true, mobile: true },
+  { id: SCREENS.HISTORY, icon: 'history', needsData: false, desktop: true, mobile: false },
+  { id: SCREENS.SETTINGS, icon: 'settings', needsData: false, desktop: true, mobile: true },
 ];
 
 /** En escritorio el partido se ve dentro de "Día" (lista lateral + detalle). */
@@ -66,7 +69,7 @@ export function renderNavigation({ topnav, bottomnav }, { screen, hasData }, onN
   );
   replaceContent(
     bottomnav,
-    NAV_ITEMS.map((item) =>
+    NAV_ITEMS.filter((item) => item.mobile).map((item) =>
       h(
         'button',
         {

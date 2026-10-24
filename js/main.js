@@ -28,6 +28,7 @@ import { readJsonPreference, removePreference, writeJsonPreference } from './ui/
 import { renderCombo } from './ui/screens/combo.js';
 import { CONTEXT_SCOPES, clearContextInput, contextKey, promptAnalyses, renderContext, showContextValidation } from './ui/screens/context.js';
 import { DAY_FILTERS, renderDay } from './ui/screens/day.js';
+import { EXPLORER_SCOPES, renderExplorer } from './ui/screens/explorer.js';
 import { renderHistory } from './ui/screens/history.js';
 import { DEFAULT_MATCH_TAB, renderMatch } from './ui/screens/match.js';
 import { PLAYER_SIDES } from './ui/screens/matchTabs/players.js';
@@ -63,6 +64,9 @@ const store = createStore({
   dayFilter: DAY_FILTERS.ALL,
   comboRules: { minOdds: initialConfig.combos.minOdds, minTier: initialConfig.combos.minTier, onePerMatch: true },
   contextScope: CONTEXT_SCOPES.REVIEW,
+  explorerStat: 'goals',
+  explorerScope: EXPLORER_SCOPES.MATCH,
+  explorerValue: null,
   config: initialConfig,
   theme: readTheme(),
   settingsRevision: 0,
@@ -187,6 +191,11 @@ const actions = {
   setComboKeys: (comboKeys) => store.setState({ comboKeys }),
   setComboRules: (patch) => store.setState({ comboRules: { ...store.getState().comboRules, ...patch } }),
   setContextScope: (contextScope) => store.setState({ contextScope }),
+  setExplorerStat: (explorerStat) => store.setState({ explorerStat, explorerValue: null }),
+  setExplorerScope: (explorerScope) => store.setState({ explorerScope }),
+  /** Solo guarda el valor: la pantalla ya lo muestra (no se redibuja, ver SCREEN_VIEWS). */
+  setExplorerValue: (explorerValue) => store.setState({ explorerValue }),
+  selectExplorerMatch: (selectedId) => store.setState({ selectedId, explorerScope: EXPLORER_SCOPES.MATCH }),
   betting: historyController.betting,
 
   previewContext(text) {
@@ -286,14 +295,21 @@ async function restoreSession() {
 
 /* ---------- Dibujo ---------- */
 
-/** Cómo se dibuja cada pantalla. `key`: si no cambia, la pantalla no se redibuja (no pierde el foco). */
+/**
+ * Cómo se dibuja cada pantalla. `key`: lista de lo que la pantalla usa; si nada cambió, no se
+ * redibuja (no pierde el foco ni corta el arrastre de un deslizador). Sin `key` se redibuja siempre.
+ */
 const SCREEN_VIEWS = {
   [SCREENS.DAY]: { render: renderDay },
   [SCREENS.MATCH]: { render: renderMatch },
+  [SCREENS.EXPLORE]: {
+    render: renderExplorer,
+    key: (state) => [state.analyses, state.config, state.explorerStat, state.explorerScope, state.selectedId],
+  },
   [SCREENS.COMBO]: { render: renderCombo },
   [SCREENS.CONTEXT]: { render: renderContext },
   [SCREENS.HISTORY]: { render: renderHistory },
-  [SCREENS.SETTINGS]: { render: renderSettings, key: (state) => state.settingsRevision },
+  [SCREENS.SETTINGS]: { render: renderSettings, key: (state) => [state.settingsRevision] },
 };
 
 const roots = {
@@ -304,6 +320,8 @@ const roots = {
 };
 
 let drawn = { screen: null, key: undefined, selectedId: null };
+
+const sameKey = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((value, index) => value === b[index]);
 
 function lastSessionSummary(analyses) {
   if (!analyses.length) return null;
@@ -327,7 +345,7 @@ function render(state) {
   } else {
     const view = SCREEN_VIEWS[screen];
     const key = view.key?.(state);
-    if (changedScreen || key === undefined || key !== drawn.key) replaceContent(roots.view, view.render(state, actions));
+    if (changedScreen || key === undefined || !sameKey(key, drawn.key)) replaceContent(roots.view, view.render(state, actions));
     drawn.key = key;
   }
   if (changedScreen) window.scrollTo({ top: 0 });
