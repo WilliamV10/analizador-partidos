@@ -1,153 +1,204 @@
 /**
- * Piezas visuales reutilizables (sin lógica de negocio).
+ * Piezas visuales reutilizables (sin lógica de negocio). Cada una corresponde a un
+ * bloque de css/components.css con el mismo nombre. Los textos llegan ya listos.
  */
 import { TEXTS } from '../texts.js';
 import { h } from './dom.js';
 import { percent } from './formatters.js';
+import { icon } from './icons.js';
 
-/**
- * Cabecera de tarjeta: título con ícono opcional y acciones a la derecha.
- * @param {string|{ title: string, icon?: string, actions?: unknown }} header
- */
-function cardHeader(header) {
-  if (!header) return null;
-  const { title, icon, actions } = typeof header === 'string' ? { title: header } : header;
-  return h(
-    'div',
-    { class: 'card__header' },
-    h('h3', { class: 'card__title' }, icon ? h('span', { class: 'card__title-icon', 'aria-hidden': 'true' }, icon) : null, title),
-    actions ?? null,
-  );
+const clamp01 = (value) => Math.max(0, Math.min(1, value ?? 0));
+const width = (value) => `${(clamp01(value) * 100).toFixed(1)}%`;
+
+/* ---------- Texto ---------- */
+
+export function eyebrow(text, className = '') {
+  return h('p', { class: `eyebrow ${className}`.trim() }, text);
 }
 
-/** Tarjeta con cabecera y contenido. */
-export function card(header, ...children) {
-  return h('section', { class: 'card' }, cardHeader(header), ...children);
+/** Etiqueta de sección entre tarjetas ("PARTIDOS", "MEJORES PICKS DEL DÍA"). */
+export function sectionLabel(text) {
+  return h('h2', { class: 'eyebrow section-label' }, text);
 }
 
 export function note(text) {
-  return h('p', { class: 'note' }, text);
+  return text ? h('p', { class: 'note' }, text) : null;
 }
 
-export function subtitle(text) {
-  return h('h4', { class: 'card__subtitle' }, text);
+/** Número con color según su signo (EV, ventaja). */
+export function signed(value, text) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return text;
+  return h('span', { class: value > 0 ? 'positive' : value < 0 ? 'negative' : '' }, text);
 }
 
-export function emptyState({ icon, title, text }) {
+/* ---------- Botones ---------- */
+
+/**
+ * @param {{ label: unknown, icon?: string, variant?: string, onClick?: Function, type?: string, disabled?: boolean, attrs?: Object }} options
+ */
+export function button({ label, icon: iconName, variant = '', onClick, type = 'button', disabled = false, attrs = {} }) {
+  const variants = variant
+    .split(' ')
+    .filter(Boolean)
+    .map((name) => `button--${name}`)
+    .join(' ');
   return h(
-    'div',
-    { class: 'empty' },
-    h('span', { class: 'empty__icon', 'aria-hidden': 'true' }, icon),
-    h('p', { class: 'empty__title' }, title),
-    text ? h('p', { class: 'note' }, text) : null,
+    'button',
+    { type, class: `button ${variants}`.trim(), onClick, disabled, ...attrs },
+    iconName ? icon(iconName, 20) : null,
+    label,
   );
 }
 
+/** Enlace de acción con flecha ("Ver todos los picks ›"). */
+export function link({ label, onClick }) {
+  return h('button', { type: 'button', class: 'link', onClick }, label, icon('chevron', 18));
+}
+
+export function iconButton({ icon: iconName, label, onClick, variant = '', pressed = null }) {
+  return h(
+    'button',
+    {
+      type: 'button',
+      class: `icon-button ${variant}`.trim(),
+      'aria-label': label,
+      title: label,
+      'aria-pressed': pressed === null ? null : String(pressed),
+      onClick,
+    },
+    icon(iconName),
+  );
+}
+
+/* ---------- Tarjetas ---------- */
+
 /**
- * Tabla con scroll horizontal propio (la página nunca se desborda en el celular).
- * @param {{ head: { label: string, numeric?: boolean }[], rows: { cells: unknown[], className?: string }[] }} config
+ * Tarjeta con cabecera opcional: etiqueta pequeña (label) o título, y acciones a la derecha.
+ * @param {{ label?: string, title?: unknown, actions?: unknown, variant?: string, tag?: string }} header
  */
-export function dataTable({ head, rows }) {
+export function card({ label, title, actions, variant = '', tag = 'section' } = {}, ...children) {
+  const head =
+    label || title || actions
+      ? h(
+          'div',
+          { class: 'card__head' },
+          label ? h('h3', { class: 'eyebrow' }, label) : h('h3', { class: 'card__title' }, title ?? ''),
+          actions ?? null,
+        )
+      : null;
+  const variants = variant
+    .split(' ')
+    .filter(Boolean)
+    .map((name) => `card--${name}`)
+    .join(' ');
+  return h(tag, { class: `card ${variants}`.trim() }, head, ...children);
+}
+
+export function emptyState({ icon: iconName = 'search', title, text = null, action = null }) {
   return h(
     'div',
-    { class: 'table-scroll' },
-    h(
-      'table',
-      { class: 'data-table' },
-      h('thead', {}, h('tr', {}, head.map((column) => h('th', { scope: 'col', class: column.numeric ? 'num' : null }, column.label)))),
+    { class: 'empty' },
+    h('span', { class: 'empty__icon' }, icon(iconName, 28)),
+    h('p', { class: 'empty__title' }, title),
+    note(text),
+    action,
+  );
+}
+
+/** Aviso destacado (advertencia por defecto). */
+export function notice(text, kind = 'warning') {
+  return h(
+    'div',
+    { class: `notice${kind === 'warning' ? '' : ` notice--${kind}`}`, role: kind === 'error' ? 'alert' : null },
+    kind === 'warning' ? icon('warning', 18) : null,
+    h('span', {}, text),
+  );
+}
+
+/** Cabecera de pantalla: etiqueta pequeña, título grande y acciones. */
+export function pageHead({ eyebrow: eyebrowText, title, actions = null }) {
+  return h(
+    'header',
+    { class: 'page-head' },
+    h('div', { class: 'page-head__text' }, eyebrowText ? eyebrow(eyebrowText) : null, h('h1', { class: 'display' }, title)),
+    actions ? h('div', { class: 'page-head__actions' }, actions) : null,
+  );
+}
+
+/* ---------- Indicadores ---------- */
+
+/**
+ * @param {{ value: unknown, label: unknown, hint?: unknown, tone?: string, center?: boolean, outlined?: boolean, small?: boolean }} tile
+ */
+export function stat({ value, label, hint = null, tone = '', center = false, outlined = false, small = false }) {
+  const classes = ['stat', center ? 'stat--center' : '', outlined ? 'stat--outlined' : ''].filter(Boolean).join(' ');
+  return h(
+    'div',
+    { class: classes },
+    h('span', { class: `stat__value${small ? ' stat__value--sm' : ''}${tone ? ` tone-${tone}` : ''}` }, value),
+    h('span', { class: 'stat__label' }, label),
+    hint ? h('span', { class: 'stat__hint' }, hint) : null,
+  );
+}
+
+export function stats(tiles, columns = tiles.length) {
+  return h('div', { class: 'stats', style: `--columns:${columns}` }, tiles.filter(Boolean).map(stat));
+}
+
+/** Lista etiqueta / valor. @param {[unknown, unknown][]} rows */
+export function kvList(rows) {
+  return h(
+    'dl',
+    { class: 'kv' },
+    rows.filter(Boolean).map(([label, value]) => h('div', { class: 'kv__row' }, h('dt', {}, label), h('dd', {}, value))),
+  );
+}
+
+/* ---------- Selectores ---------- */
+
+/** Fila de chips de filtro (uno activo). */
+export function chips(items, activeId, onSelect, label) {
+  return h(
+    'div',
+    { class: 'chips', role: 'group', 'aria-label': label },
+    items.map((item) =>
       h(
-        'tbody',
-        {},
-        rows.map((row) =>
-          h(
-            'tr',
-            { class: row.className ?? null },
-            row.cells.map((cell, index) => h('td', { class: head[index]?.numeric ? 'num' : null }, cell)),
-          ),
-        ),
+        'button',
+        { type: 'button', class: 'chip', 'aria-pressed': String(item.id === activeId), onClick: () => onSelect(item.id) },
+        item.label,
+      ),
+    ),
+  );
+}
+
+/** Control segmentado (2-3 opciones del mismo ancho). */
+export function segmented(items, activeId, onSelect, label) {
+  return h(
+    'div',
+    { class: 'segmented', role: 'group', 'aria-label': label },
+    items.map((item) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'segmented__option',
+          'aria-pressed': String(item.id === activeId),
+          onClick: () => onSelect(item.id),
+        },
+        item.label,
       ),
     ),
   );
 }
 
 /**
- * Probabilidad con una barra de fondo proporcional.
- * @param {number|null} probability
- * @param {'home'|'away'|null} [variant]
- */
-export function probabilityCell(probability, variant = null) {
-  if (probability === null || probability === undefined) return percent(probability);
-  return h(
-    'span',
-    { class: `prob${variant ? ` prob--${variant}` : ''}`, style: `--p:${Math.max(0, Math.min(1, probability)).toFixed(3)}` },
-    percent(probability),
-  );
-}
-
-/** Número con color según su signo (EV, ventaja). */
-export function signedCell(value, text) {
-  if (value === null || value === undefined) return text;
-  return h('span', { class: value > 0 ? 'positive' : 'negative' }, text);
-}
-
-export function tierBadge(tier) {
-  return h('span', { class: `badge badge--${tier}` }, TEXTS.tiers[tier] ?? tier);
-}
-
-export function plainBadge(text, variant = 'accent') {
-  return h('span', { class: `badge badge--plain badge--${variant}` }, text);
-}
-
-/** Letra de forma (G/E/P) coloreada. */
-export function formBadge(result) {
-  const variant = { W: 'win', D: 'draw', L: 'loss' }[result] ?? 'draw';
-  return h('span', { class: `form-badge form-badge--${variant}`, title: result }, TEXTS.form[result] ?? result);
-}
-
-/** Barra apilada local / empate / visita. */
-export function resultBar({ home, draw, away }, names) {
-  const segment = (variant, probability, label) =>
-    h(
-      'span',
-      { class: `result-bar__segment result-bar__segment--${variant}`, style: `flex-grow:${probability}` },
-      `${label} ${percent(probability)}`,
-    );
-  return h(
-    'div',
-    { class: 'result-bar', role: 'img', 'aria-label': TEXTS.a11y.resultBar(names, { home, draw, away }) },
-    segment('home', home, '1'),
-    segment('draw', draw, 'X'),
-    segment('away', away, '2'),
-  );
-}
-
-/** Indicador grande: etiqueta, valor y pista. */
-export function kpi(label, value, hint = null) {
-  return h(
-    'div',
-    { class: 'kpi' },
-    h('span', { class: 'kpi__label' }, label),
-    h('p', { class: 'kpi__value' }, value),
-    hint ? h('span', { class: 'kpi__hint' }, hint) : null,
-  );
-}
-
-/** Interruptor accesible (checkbox con estilo). */
-export function switchToggle(label, checked, onChange) {
-  return h('label', { class: 'switch' }, h('input', { type: 'checkbox', role: 'switch', checked, onChange }), label);
-}
-
-/**
  * Pestañas. El contenido lo dibuja quien llama; aquí solo va la barra.
  * @param {{ id: string, label: string, count?: number|null }[]} items
- * @param {string} activeId
- * @param {(id: string) => void} onSelect
- * @param {{ primary?: boolean, label: string }} options
  */
-export function tabs(items, activeId, onSelect, { primary = false, label }) {
+export function tabs(items, activeId, onSelect, label) {
   return h(
     'div',
-    { class: `tabs${primary ? ' tabs--primary' : ''}`, role: 'tablist', 'aria-label': label },
+    { class: 'tabs', role: 'tablist', 'aria-label': label },
     items.map((item) =>
       h(
         'button',
@@ -155,45 +206,159 @@ export function tabs(items, activeId, onSelect, { primary = false, label }) {
           type: 'button',
           role: 'tab',
           class: 'tab',
-          'aria-selected': item.id === activeId ? 'true' : 'false',
+          'aria-selected': String(item.id === activeId),
           onClick: () => onSelect(item.id),
         },
         item.label,
-        item.count === null || item.count === undefined ? null : h('span', { class: 'tab__count' }, item.count),
+        item.count ? h('span', { class: 'tab__count' }, item.count) : null,
       ),
     ),
   );
 }
 
-const CREST_HUES = 360;
+/* ---------- Badges ---------- */
 
-function hashText(text) {
-  let hash = 0;
-  for (const char of String(text)) hash = (hash * 31 + char.codePointAt(0)) % 1_000_003;
-  return hash;
+export function tierBadge(tier) {
+  return h('span', { class: `badge badge--${tier}` }, TEXTS.tiers[tier] ?? tier);
 }
 
-function initials(name) {
+/** Badge de texto libre. variant: warning, info, win, loss, none, high, medium, low. */
+export function badge(text, variant = 'none') {
+  return h('span', { class: `badge badge--soft badge--${variant}` }, text);
+}
+
+const FORM_VARIANTS = { W: 'win', D: 'draw', L: 'loss' };
+
+/** Forma reciente (G/E/P) en cuadritos de color. */
+export function formBadges(form) {
+  if (!form?.length) return null;
+  return h(
+    'div',
+    { class: 'form', 'aria-label': TEXTS.a11y.form(form) },
+    form.map((result) =>
+      h('span', { class: `form__item form__item--${FORM_VARIANTS[result] ?? 'draw'}`, 'aria-hidden': 'true' }, TEXTS.form[result] ?? result),
+    ),
+  );
+}
+
+/* ---------- Probabilidades ---------- */
+
+/** Barra apilada local / empate / visita. */
+export function resultBar({ home, draw, away }, names) {
+  const segment = (variant, probability) =>
+    h('span', { class: `result-bar__segment result-bar__segment--${variant}`, style: `flex-grow:${probability.toFixed(4)}` });
+  return h(
+    'div',
+    { class: 'result-bar', role: 'img', 'aria-label': TEXTS.a11y.resultBar(names, { home, draw, away }) },
+    segment('home', home),
+    segment('draw', draw),
+    segment('away', away),
+  );
+}
+
+/** "1 · 29%   X · 24%   2 · 47%   xG 1.28–1.69" bajo la barra. */
+export function resultLegend({ home, draw, away }, extra = null) {
+  return h(
+    'div',
+    { class: 'result-legend' },
+    h('span', {}, `1 · ${percent(home)}`),
+    h('span', {}, `X · ${percent(draw)}`),
+    h('span', {}, `2 · ${percent(away)}`),
+    extra ? h('span', {}, extra) : null,
+  );
+}
+
+/** Tres probabilidades grandes (local / empate / visita). */
+export function probabilityTrio({ home, draw, away }, names) {
+  const item = (value, label, tone) =>
+    h(
+      'div',
+      {},
+      h('p', { class: `probability-trio__value tone-${tone}` }, percent(value)),
+      h('p', { class: 'probability-trio__label' }, label),
+    );
+  return h(
+    'div',
+    { class: 'probability-trio' },
+    item(home, names.home, 'home'),
+    item(draw, TEXTS.match.draw, 'draw'),
+    item(away, names.away, 'away'),
+  );
+}
+
+/**
+ * Pista con relleno y, opcionalmente, una marca (la probabilidad de la casa).
+ * @param {{ value: number|null, marker?: number|null, tone?: string }} options  tone: muted, home, away
+ */
+export function track({ value, marker = null, tone = '' }) {
+  return h(
+    'span',
+    { class: 'track', 'aria-hidden': 'true' },
+    h('span', { class: `track__fill${tone ? ` track__fill--${tone}` : ''}`, style: `width:${width(value)}` }),
+    marker === null || marker === undefined ? null : h('span', { class: 'track__marker', style: `left:${width(marker)}` }),
+  );
+}
+
+/** Fila de mercado: etiqueta, pista (mi prob. + marca de la casa), % y cuota. */
+export function barRow({ label, value, marker = null, odds = null, tone = '' }) {
+  return h(
+    'div',
+    { class: 'bar-row' },
+    h('span', { class: 'bar-row__label', title: typeof label === 'string' ? label : null }, label),
+    track({ value, marker, tone }),
+    h('span', { class: 'bar-row__value' }, percent(value)),
+    h('span', { class: 'bar-row__odds' }, odds ?? ''),
+  );
+}
+
+/** Comparación en barras ("Mi prob." contra "Casa"). @param {{ label: string, value: number, tone?: string }[]} rows */
+export function compareBars(rows) {
+  return h(
+    'dl',
+    { class: 'compare' },
+    rows.map(({ label, value, tone = '' }) => [h('dt', {}, label), h('dd', {}, track({ value, tone })), h('dd', { class: 'compare__value' }, percent(value))]),
+  );
+}
+
+/* ---------- Tablas ---------- */
+
+/**
+ * Tabla con scroll horizontal propio (la página nunca se desborda en el celular).
+ * @param {{ head: { label: string, numeric?: boolean }[], rows: ({ cells: unknown[], className?: string }|null)[], caption?: string }} config
+ */
+export function dataTable({ head, rows, caption = null }) {
+  return h(
+    'div',
+    { class: 'table-scroll' },
+    h(
+      'table',
+      { class: 'table' },
+      caption ? h('caption', { class: 'visually-hidden' }, caption) : null,
+      h('thead', {}, h('tr', {}, head.map((column) => h('th', { scope: 'col', class: column.numeric ? 'is-num' : null }, column.label)))),
+      h(
+        'tbody',
+        {},
+        rows.filter(Boolean).map((row) =>
+          h(
+            'tr',
+            { class: row.className ?? null },
+            row.cells.map((cell, index) => h('td', { class: head[index]?.numeric ? 'is-num' : null }, cell)),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/* ---------- Varios ---------- */
+
+/** Abreviatura de 3 letras de un equipo (para jugadores y listas compactas). */
+export function teamShort(name) {
   const words = String(name)
-    .replace(/\b(FC|CF|SC|AC|CD|CA|Club|de|del|la)\b/gi, '')
+    .replace(/\b(FC|CF|SC|AC|CD|CA|Club|de|del|la|United|City)\b/gi, '')
     .trim()
     .split(/\s+/)
     .filter(Boolean);
-  if (!words.length) return '?';
-  if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
-  return (words[0][0] + words[1][0]).toUpperCase();
-}
-
-/** "Escudo" generado: iniciales sobre un color estable derivado del nombre. */
-export function teamCrest(name) {
-  const hue = hashText(name) % CREST_HUES;
-  return h(
-    'span',
-    {
-      class: 'team-crest',
-      'aria-hidden': 'true',
-      style: `background:linear-gradient(140deg,hsl(${hue} 62% 48%),hsl(${(hue + 28) % CREST_HUES} 66% 36%))`,
-    },
-    initials(name),
-  );
+  const base = words[0] ?? String(name);
+  return base.slice(0, 3).toUpperCase();
 }

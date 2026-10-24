@@ -52,6 +52,17 @@ export function parsePlayer(raw) {
   };
 }
 
+/**
+ * Historial del árbitro: { partidos, amarillas, rojas } -> { games, yellows, reds, yellowsPerGame }.
+ * @returns {import('../types.js').RefereeStats|null}
+ */
+export function parseRefereeStats(raw) {
+  const games = toNumber(raw?.partidos);
+  if (!(games > 0) || !Number.isFinite(Number(raw?.amarillas))) return null;
+  const yellows = toNumber(raw.amarillas);
+  return { games, yellows, reds: toNumber(raw.rojas), yellowsPerGame: yellows / games };
+}
+
 /** "1. Club América 24pts PJ11 7-3-1 GF27 GC14" -> Standing */
 export function parseStandingLine(line) {
   const match = String(line).trim().match(STANDING);
@@ -138,6 +149,7 @@ export function buildMatch(raw, { source, standings, fallbackId }) {
     status: raw.estado ?? null,
     score: raw.marcador ?? null,
     referee: raw.arbitro ?? null,
+    refereeStats: parseRefereeStats(raw.arbitroStats),
     venue: raw.estadio ?? null,
     lineupsConfirmed: raw.alineacionesConfirmadas === true,
     home: buildTeam({

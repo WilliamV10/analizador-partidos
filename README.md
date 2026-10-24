@@ -8,9 +8,11 @@ Página web estática que analiza el JSON exportado por los scripts de Sofascore
 
 1. Corre el script de Sofascore (v2 para un partido o v4 para varios) y guarda el JSON.
 2. Abre la página, pega el JSON o sube uno o varios archivos, y pulsa **Analizar**.
-3. (Opcional) En **Contexto de Claude**, copia el resumen, pásaselo a Claude y pega el bloque que devuelve para recalcular con noticias, bajas y rotaciones.
-4. (Opcional) Con ⚙️ ajustas los parámetros del modelo; se guardan en tu navegador.
-5. **Historial (📒):** las predicciones se guardan solas; registra tus apuestas con **+**. Después de los partidos, copia el script de resultados, córrelo en la consola de Sofascore y sube el archivo: todo se liquida solo y ves ganancia, ROI, CLV y calibración.
+   Lo cargado se guarda en el navegador: al volver a abrir la página se recupera solo. **Limpiar** lo borra.
+3. (Opcional) En **Contexto**, copia el resumen, pásaselo a Claude y pega el bloque que devuelve para recalcular con noticias, bajas y rotaciones.
+4. (Opcional) En **Ajustes** cambias los parámetros del modelo y el tema; se guardan en tu navegador.
+5. En **Combinada** armas tu combinada con los picks con valor y la copias.
+6. **Historial:** las predicciones se guardan solas; registra tus apuestas con **+**. Después de los partidos, copia el script de resultados, córrelo en la consola de Sofascore y sube el archivo: todo se liquida solo y ves ganancia, ROI, CLV y calibración.
 
 ## Correr en local
 
@@ -41,13 +43,13 @@ node --test
 
 ```
 index.html          página
-css/                tokens, layout, componentes
+css/                tokens (colores y medidas), layout, componentes
 js/config.js        parámetros del modelo
 js/config/leagues.js  coeficientes por liga y peso por competición (editable)
 js/texts.js         textos de la interfaz
 js/io, js/adapters  lectura y conversión del JSON al modelo interno
 js/domain           cálculos (funciones puras, con tests)
-js/ui               interfaz
+js/ui               interfaz (screens/ = una pantalla por archivo)
 tests/              tests con node:test
 scripts/            scripts de consola de Sofascore (v2 un partido, v4 varios)
 docs/CONTEXTO.md    documento maestro

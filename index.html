@@ -3,183 +3,123 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#0a0f17" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0a0e13" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f2f4f7" media="(prefers-color-scheme: light)" />
     <title>Analizador de partidos</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23c5f23a'/%3E%3Cpath d='M8 24v-6M13 24V12M18 24V15M23 24V9' stroke='%230a0e13' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" />
     <link rel="stylesheet" href="css/tokens.css" />
     <link rel="stylesheet" href="css/layout.css" />
     <link rel="stylesheet" href="css/components.css" />
     <script src="js/themeInit.js"></script>
   </head>
   <body>
-    <header class="app-bar">
-      <div class="container app-bar__inner">
-        <div class="brand">
-          <span class="brand__logo" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m12 7 4.5 3.3-1.7 5.2H9.2l-1.7-5.2Z"/><path d="M12 7V2.5M16.5 10.3l4.2-1.4M14.8 15.5l2.7 3.8M9.2 15.5l-2.7 3.8M7.5 10.3 3.3 8.9"/></svg>
-          </span>
-          <div class="brand__text">
-            <h1 class="brand__title">Analizador de partidos</h1>
-            <p class="brand__subtitle">Modelo Poisson · cuotas · valor esperado</p>
-          </div>
-        </div>
-        <div class="app-bar__actions" data-app-actions>
-          <button class="icon-button" type="button" data-history-toggle aria-pressed="false" aria-label="Historial" title="Historial">📒</button>
-          <button class="icon-button" type="button" data-settings-open aria-label="Ajustes del modelo" title="Ajustes del modelo">⚙️</button>
-          <button class="icon-button" type="button" data-theme-toggle aria-label="Cambiar tema"></button>
+    <a class="skip-link" href="#main">Saltar al contenido</a>
+
+    <header class="topbar">
+      <div class="topbar__inner">
+        <button class="brand" type="button" data-nav="day">
+          <span class="brand__logo" data-icon="logo" data-size="20"></span>
+          Analizador
+        </button>
+        <nav class="topnav" aria-label="Secciones" data-topnav></nav>
+        <div class="topbar__actions">
+          <button class="icon-button hide-desktop" type="button" data-nav="load" aria-label="Cargar JSON" title="Cargar JSON">
+            <span data-icon="upload"></span>
+          </button>
+          <button class="icon-button hide-desktop" type="button" data-copy-claude aria-label="Copiar para Claude" title="Copiar para Claude">
+            <span data-icon="copy"></span>
+          </button>
+          <button class="button button--sm hide-mobile" type="button" data-nav="load">
+            <span data-icon="upload" data-size="18"></span>Cargar JSON
+          </button>
+          <button class="button button--sm button--primary hide-mobile" type="button" data-copy-claude>
+            <span data-icon="copy" data-size="18"></span>Copiar para Claude
+          </button>
         </div>
       </div>
     </header>
 
-    <main class="container stack">
-      <details id="loader" class="card loader" open>
-        <summary class="loader__summary">
-          <span class="loader__summary-icon" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
-          </span>
-          <span class="loader__summary-text">
-            <span class="loader__summary-title">Cargar datos</span>
-            <span class="loader__summary-status" data-loader-summary>Pega o sube el JSON del script de Sofascore</span>
-          </span>
-          <span class="loader__chevron" aria-hidden="true"></span>
-        </summary>
+    <main id="main" class="app" tabindex="-1">
+      <!-- Inicio y carga: formulario fijo (no se redibuja, así no se pierde lo pegado). -->
+      <section id="screen-load" class="screen" aria-labelledby="load-title" hidden>
+        <header class="page-head">
+          <div class="page-head__text">
+            <h1 id="load-title" class="display display--xl">Carga los partidos</h1>
+            <p class="muted">Sube o pega el JSON del script de Sofascore. Todo se calcula en tu navegador; nada sale de él.</p>
+          </div>
+        </header>
 
-        <form class="loader__form" data-loader-form>
-          <ol class="steps" aria-label="Cómo empezar">
-            <li><strong>Sofascore</strong> Corre el script v4 (o v2) en la consola.</li>
-            <li><strong>JSON</strong> Pega el texto o sube el archivo descargado.</li>
-            <li><strong>Analizar</strong> Todo se calcula en tu navegador.</li>
-          </ol>
-
-          <label class="field">
-            <span class="field__label">JSON pegado</span>
-            <textarea
-              class="field__input field__input--code"
-              data-json-input
-              rows="4"
-              spellcheck="false"
-              placeholder='{"version":4,"partidos":[...]}  o  {"version":2,"partido":"..."}'
-            ></textarea>
-          </label>
-
+        <form class="stack" data-loader-form>
           <label class="drop-zone" data-drop-zone>
             <input class="visually-hidden" type="file" accept=".json,application/json" multiple data-file-input />
-            <span class="drop-zone__icon" aria-hidden="true">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5Z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15l3-3 3 3"/></svg>
-            </span>
-            <span class="drop-zone__text">Toca para elegir archivos <strong>.json</strong> o arrástralos aquí</span>
+            <span class="drop-zone__icon" data-icon="upload" data-size="24"></span>
+            <span class="drop-zone__title">Elegir archivos .json</span>
+            <span class="note">Puedes elegir varios a la vez o arrastrarlos aquí</span>
             <span class="drop-zone__files" data-file-list></span>
           </label>
 
-          <div class="loader__actions">
-            <label class="field field--inline">
-              <span class="field__label">Modo</span>
-              <select class="field__input" data-mode>
-                <option value="auto" selected>Auto (detectar)</option>
-                <option value="single">Un partido</option>
-                <option value="multi">Varios partidos</option>
-              </select>
-            </label>
-            <div class="button-row">
-              <button class="button button--ghost" type="reset">Limpiar</button>
-              <button class="button button--primary" type="submit" data-submit>Analizar</button>
+          <label class="field">
+            <span class="eyebrow">O pega el JSON</span>
+            <textarea class="textarea" data-json-input rows="3" spellcheck="false" placeholder='{"version":4,"partidos":[…]}'></textarea>
+          </label>
+
+          <div class="field">
+            <span class="eyebrow" id="mode-label">Modo</span>
+            <div class="segmented" role="group" aria-labelledby="mode-label" data-mode>
+              <button class="segmented__option" type="button" data-value="auto" aria-pressed="true">Auto</button>
+              <button class="segmented__option" type="button" data-value="single" aria-pressed="false">Un partido</button>
+              <button class="segmented__option" type="button" data-value="multi" aria-pressed="false">Varios</button>
             </div>
+          </div>
+
+          <div class="button-row button-row--split">
+            <button class="button button--lg" type="reset">Limpiar</button>
+            <button class="button button--lg button--primary" type="submit" data-submit>
+              Analizar <span data-icon="arrow" data-size="20"></span>
+            </button>
           </div>
           <p class="status" data-status role="status" aria-live="polite"></p>
         </form>
-      </details>
 
-      <details id="context-panel" class="card loader" hidden>
-        <summary class="loader__summary">
-          <span class="loader__summary-icon" aria-hidden="true">🧠</span>
-          <span class="loader__summary-text">
-            <span class="loader__summary-title">Contexto de Claude</span>
-            <span class="loader__summary-status" data-context-summary>Noticias, rotaciones y motivación que el modelo no ve</span>
-          </span>
-          <span class="loader__chevron" aria-hidden="true"></span>
-        </summary>
-        <div class="loader__form">
-          <ol class="steps" aria-label="Cómo usar el contexto">
-            <li><strong>Copiar</strong> Copia el resumen de los partidos.</li>
-            <li><strong>Claude</strong> Pégalo en el chat: investiga y devuelve un bloque JSON.</li>
-            <li><strong>Aplicar</strong> Pega el bloque aquí y recalcula.</li>
-          </ol>
-          <div class="button-row">
-            <button class="button button--ghost" type="button" data-context-copy>📋 Copiar para Claude</button>
-          </div>
-          <label class="field">
-            <span class="field__label">Bloque de contexto</span>
-            <textarea
-              class="field__input field__input--code"
-              data-context-input
-              rows="4"
-              spellcheck="false"
-              placeholder='{"tipo":"contexto-claude","version":1,"partidos":[...]}'
-            ></textarea>
-          </label>
-          <div class="button-row">
-            <button class="button button--ghost" type="button" data-context-clear>Quitar contexto</button>
-            <button class="button button--primary" type="button" data-context-apply>Aplicar contexto</button>
-          </div>
-          <p class="status" data-context-status role="status" aria-live="polite"></p>
-        </div>
-      </details>
+        <div data-last-session></div>
+        <p class="disclaimer">Son probabilidades, no certezas. Apuesta solo lo que estés dispuesto a perder.</p>
+      </section>
 
-      <section id="results" aria-live="polite"></section>
-      <section id="history" aria-live="polite" hidden></section>
+      <!-- Resto de pantallas: se dibujan desde js/ui/screens/. -->
+      <section id="screen-view" class="screen" aria-live="polite" hidden></section>
     </main>
 
-    <dialog id="bet-dialog" class="dialog dialog--small" aria-labelledby="bet-title">
+    <nav class="bottom-nav" aria-label="Secciones" data-bottomnav></nav>
+
+    <div class="toast" data-toast role="status" aria-live="polite" hidden></div>
+
+    <dialog id="bet-dialog" class="dialog" aria-labelledby="bet-title">
       <form class="dialog__form" method="dialog" data-bet-form>
-        <header class="dialog__header">
-          <h2 id="bet-title" class="card__title">Registrar apuesta</h2>
-          <button class="icon-button" type="submit" value="close" aria-label="Cerrar">✕</button>
+        <header class="dialog__head">
+          <h2 id="bet-title" class="display display--sm">Registrar apuesta</h2>
+          <button class="icon-button" type="submit" value="close" aria-label="Cerrar"><span data-icon="close"></span></button>
         </header>
-        <div class="dialog__body stack">
-          <div class="pick-cell" data-bet-pick></div>
-          <div class="settings__grid">
-            <label class="field">
-              <span class="field__label">Cuota tomada</span>
-              <input class="field__input" type="number" inputmode="decimal" min="1.01" step="0.01" required data-bet-odds />
-            </label>
-            <label class="field">
-              <span class="field__label">Monto (unidades)</span>
-              <input class="field__input" type="number" inputmode="decimal" min="0.01" step="0.25" required data-bet-stake />
-            </label>
-          </div>
+        <div class="dialog__pick" data-bet-pick></div>
+        <div class="dialog__grid">
+          <label class="field">
+            <span class="field__label">Cuota tomada</span>
+            <input class="input" type="number" inputmode="decimal" min="1.01" step="0.01" required data-bet-odds />
+          </label>
+          <label class="field">
+            <span class="field__label">Monto (unidades)</span>
+            <input class="input" type="number" inputmode="decimal" min="0.01" step="0.25" required data-bet-stake />
+          </label>
         </div>
-        <footer class="dialog__footer">
-          <button class="button button--ghost" type="button" data-bet-remove>Quitar registro</button>
+        <div class="button-row">
+          <button class="button button--danger" type="button" data-bet-remove>Quitar registro</button>
           <button class="button button--primary" type="button" data-bet-save>Guardar</button>
-        </footer>
+        </div>
       </form>
     </dialog>
-
-    <dialog id="settings" class="dialog" aria-labelledby="settings-title">
-      <form class="dialog__form" method="dialog" data-settings-form>
-        <header class="dialog__header">
-          <h2 id="settings-title" class="card__title">Ajustes del modelo</h2>
-          <button class="icon-button" type="submit" value="close" aria-label="Cerrar">✕</button>
-        </header>
-        <div class="dialog__body" data-settings-fields></div>
-        <footer class="dialog__footer">
-          <p class="status" data-settings-status role="status" aria-live="polite"></p>
-          <div class="button-row">
-            <button class="button button--ghost" type="button" data-settings-reset>Restaurar</button>
-            <button class="button button--primary" type="button" data-settings-save>Guardar y recalcular</button>
-          </div>
-        </footer>
-      </form>
-    </dialog>
-
-    <footer class="app-footer">
-      <div class="container">Son probabilidades, no certezas. Apuesta solo lo que estés dispuesto a perder.</div>
-    </footer>
 
     <script type="module" src="js/main.js"></script>
   </body>

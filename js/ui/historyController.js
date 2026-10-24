@@ -5,7 +5,7 @@
 import { exportBackup, importBackup, importResults } from '../app/importResults.js';
 import { readTextFiles } from '../io/fileReader.js';
 import { ImportError } from '../io/importError.js';
-import { TEXTS, marketLabel, selectionLabel } from '../texts.js';
+import { TEXTS, marketLabel, pickTitle } from '../texts.js';
 import { downloadText } from './download.js';
 import { buildResultsScript } from './resultsScript.js';
 
@@ -47,7 +47,7 @@ export function createHistoryController({ history, store, betDialog }) {
       {
         matchTitle: record.matchTitle,
         market: marketLabel(record.market),
-        selection: selectionLabel(record.market, record.selection, names),
+        selection: pickTitle(record.market, record.selection, names),
         odds: record.odds,
         bet: record.bet,
       },

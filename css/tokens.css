@@ -1,6 +1,8 @@
 /*
- * Tokens de diseño. Cada color se define una sola vez con light-dark():
- * el tema sigue al sistema y se puede forzar con <html data-theme="light|dark">.
+ * Tokens de diseño: el ÚNICO lugar con colores, tipografías, radios y espacios.
+ * Cada color se define una vez con light-dark(): el tema sigue al sistema y se
+ * puede forzar con <html data-theme="light|dark"> (ver js/ui/theme.js).
+ * El tema oscuro es el de la propuesta; el claro es su equivalente legible.
  */
 :root {
   color-scheme: light dark;
@@ -15,70 +17,81 @@
 }
 
 :root {
-  /* Superficies */
-  --bg: light-dark(#f3f5f9, #0a0f17);
-  --bg-glow: light-dark(rgb(79 70 229 / 7%), rgb(99 102 241 / 14%));
-  --surface: light-dark(#ffffff, #111826);
-  --surface-raised: light-dark(#ffffff, #162033);
-  --surface-muted: light-dark(#eef1f6, #1a2436);
-  --surface-sunken: light-dark(#e7ebf2, #0d1420);
-  --appbar: light-dark(rgb(255 255 255 / 82%), rgb(10 15 23 / 78%));
+  /* Superficies: fondo → tarjeta → bloque dentro de tarjeta */
+  --bg: light-dark(#f2f4f7, #0a0e13);
+  --surface: light-dark(#ffffff, #121922);
+  --surface-2: light-dark(#f1f4f7, #19222d);
+  --surface-3: light-dark(#e3e8ee, #1f2935);
+  --overlay: light-dark(rgb(242 244 247 / 88%), rgb(10 14 19 / 88%));
 
   /* Texto y bordes */
-  --text: light-dark(#111827, #e8edf5);
-  --text-muted: light-dark(#5b6678, #93a0b5);
-  --text-faint: light-dark(#8a94a6, #64718a);
-  --border: light-dark(#e1e6ee, #222d40);
-  --border-strong: light-dark(#cbd3df, #33415a);
+  --text: light-dark(#0f1720, #ecf1f6);
+  --text-2: light-dark(#334150, #c3cdd8);
+  --muted: light-dark(#566475, #9aa8b8);
+  --faint: light-dark(#6b7887, #8291a3);
+  --border: light-dark(#dde3e9, #1f2935);
+  --border-strong: light-dark(#c6cfd8, #263241);
 
-  /* Marca */
-  --accent: light-dark(#4f46e5, #818cf8);
-  --accent-strong: light-dark(#4338ca, #a5b4fc);
-  --accent-soft: light-dark(#eef0ff, #1e2350);
-  --accent-text: light-dark(#ffffff, #0b0f1d);
-  --focus: light-dark(#4f46e5, #a5b4fc);
+  /* Marca: --accent rellena (botón principal), --accent-ink es texto sobre la superficie */
+  --accent: #c5f23a;
+  --accent-hover: #d6ff5c;
+  --accent-ink: light-dark(#3f6b00, #c5f23a);
+  --accent-soft: light-dark(#eef9cc, #1a2416);
+  --accent-border: light-dark(#a9d42a, #3b4a1a);
+  --on-accent: #0a0e13;
+  --focus: light-dark(#3f6b00, #e3ff8a);
 
-  /* Resultados */
-  --win: light-dark(#15803d, #4ade80);
-  --draw: light-dark(#a16207, #facc15);
-  --loss: light-dark(#dc2626, #f87171);
-  --positive: light-dark(#15803d, #4ade80);
-  --negative: light-dark(#b91c1c, #f87171);
-
-  /* Equipos (barra 1X2, mapa de calor) */
-  --home: light-dark(#2563eb, #60a5fa);
-  --draw-bar: light-dark(#94a3b8, #64748b);
-  --away: light-dark(#ea580c, #fb923c);
-  --heat: light-dark(#4f46e5, #818cf8);
+  /* Equipos y resultado */
+  --home: light-dark(#2f6fdb, #5b9bff);
+  --away: light-dark(#d9730d, #ff9f43);
+  --draw: light-dark(#8a97a6, #8a97a6);
+  --positive: light-dark(#3f6b00, #c5f23a);
+  --negative: light-dark(#c63030, #ff8a8a);
+  --win: light-dark(#14804a, #3ddc97);
+  --win-soft: light-dark(#dcf5e8, #11291d);
+  --loss: light-dark(#c63030, #ff8a8a);
+  --loss-soft: light-dark(#fbe3e3, #33181a);
+  --neutral-soft: light-dark(#e9edf1, #232b34);
 
   /* Niveles de confianza */
-  --tier-high-bg: light-dark(#dcfce7, #0f3320);
-  --tier-high-text: light-dark(#166534, #86efac);
-  --tier-medium-bg: light-dark(#fef3c7, #3a2c07);
-  --tier-medium-text: light-dark(#92400e, #fcd34d);
-  --tier-low-bg: light-dark(#dbeafe, #102a4c);
-  --tier-low-text: light-dark(#1e40af, #93c5fd);
-  --tier-none-bg: light-dark(#eef1f5, #1c2535);
-  --tier-none-text: light-dark(#64748b, #8b98ad);
+  --tier-high: light-dark(#14804a, #3ddc97);
+  --tier-high-bg: light-dark(#dcf5e8, #11291d);
+  --tier-medium: #f6b93b;
+  --tier-medium-ink: #2a2112;
+  --tier-low: light-dark(#2f6fdb, #6ca6ff);
+  --tier-low-ink: light-dark(#ffffff, #0a0e13);
+  --tier-none: light-dark(#e9edf1, #232b34);
+  --tier-none-ink: light-dark(#566475, #9aa8b8);
 
   /* Mensajes */
-  --warning-bg: light-dark(#fffbeb, #2a2109);
-  --warning-border: light-dark(#f59e0b, #b7791f);
-  --info-bg: light-dark(#eff6ff, #0f2140);
-  --info-border: light-dark(#3b82f6, #3b6fc4);
-  --error-text: light-dark(#b91c1c, #fca5a5);
-  --success-text: light-dark(#15803d, #86efac);
+  --warning: light-dark(#8a5a00, #f7d28a);
+  --warning-bg: light-dark(#fff4dc, #2a2112);
+  --warning-border: light-dark(#f0c36a, #4a3a1a);
+  --info: light-dark(#1d4f9c, #a9c8ff);
+  --info-bg: light-dark(#e6effd, #16233a);
+  --error: light-dark(#b42318, #ff8a8a);
+  --success: light-dark(#14804a, #6ee7a8);
 
   /* Posiciones de jugador */
-  --pos-g: light-dark(#f59e0b, #fbbf24);
-  --pos-d: light-dark(#3b82f6, #60a5fa);
-  --pos-m: light-dark(#10b981, #34d399);
-  --pos-f: light-dark(#ef4444, #f87171);
+  --pos-g: light-dark(#b7791f, #f6b93b);
+  --pos-d: light-dark(#2f6fdb, #5b9bff);
+  --pos-m: light-dark(#14804a, #3ddc97);
+  --pos-f: light-dark(#c63030, #ff8a8a);
+
+  /* Tipografía */
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-base: 14px;
+  --text-lg: 15px;
 
   /* Forma y espacio */
-  --radius-large: 18px;
-  --radius: 14px;
-  --radius-small: 9px;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
   --radius-pill: 999px;
   --space-1: 4px;
   --space-2: 8px;
@@ -86,14 +99,13 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
-  --space-7: 48px;
+  --tap: 44px;
 
-  /* Tipografía */
-  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
-  /* Profundidad */
-  --shadow: light-dark(0 1px 2px rgb(15 23 42 / 6%), 0 1px 2px rgb(0 0 0 / 40%));
-  --shadow-raised: light-dark(0 8px 28px rgb(15 23 42 / 9%), 0 10px 30px rgb(0 0 0 / 45%));
-  --transition: 160ms ease;
+  /* Estructura */
+  --topbar-height: 60px;
+  --bottom-nav-height: 64px;
+  --content-max: 1440px;
+  --sidebar-width: 300px;
+  --transition: 150ms ease;
+  --shadow: light-dark(0 1px 3px rgb(15 23 42 / 8%), 0 1px 2px rgb(0 0 0 / 30%));
 }

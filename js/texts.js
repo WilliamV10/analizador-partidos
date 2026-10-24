@@ -10,13 +10,24 @@ const TIER_NAMES = { high: 'Alta', medium: 'Media', low: 'Media-baja', none: 'Si
 export const TEXTS = Object.freeze({
   app: {
     disclaimer: 'Son probabilidades, no certezas. Apuesta solo lo que estés dispuesto a perder.',
+    copyFallback: 'El navegador no dejó copiar: se descargó como archivo de texto.',
   },
+  nav: {
+    day: 'Día',
+    match: 'Partido',
+    combo: 'Combinada',
+    context: 'Contexto',
+    history: 'Historial',
+    settings: 'Ajustes',
+  },
+  weekdays: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
   theme: {
     auto: { icon: '🌗', label: 'Tema: automático (toca para claro)' },
     light: { icon: '☀️', label: 'Tema: claro (toca para oscuro)' },
     dark: { icon: '🌙', label: 'Tema: oscuro (toca para automático)' },
   },
   a11y: {
+    form: (form) => `Forma reciente: ${form.map((result) => ({ W: 'ganó', D: 'empató', L: 'perdió' })[result] ?? result).join(', ')}`,
     resultBar: (names, { home, draw, away }) =>
       `${names.home} ${Math.round(home * 100)}%, empate ${Math.round(draw * 100)}%, ${names.away} ${Math.round(away * 100)}%`,
     matchTabs: 'Secciones del partido',
@@ -31,23 +42,159 @@ export const TEXTS = Object.freeze({
       return tournaments.length ? `${count} · ${tournaments.join(', ')}` : count;
     },
     filesSelected: (names) => `Archivos: ${names.join(', ')}`,
+    lastTitle: 'Último análisis',
+    restored: (count, savedAt) =>
+      `Se recuperó la última carga (${count} ${plural(count, 'partido', 'partidos')}, ${new Date(savedAt).toLocaleString()}). ` +
+      'Usa «Limpiar» para borrarla o carga otros datos para reemplazarla.',
     working: 'Analizando…',
   },
-  views: {
-    day: 'Resumen',
-    match: 'Partidos',
-    picks: 'Picks',
-    combos: 'Combinadas',
-  },
   matchTabs: {
-    overview: 'Resumen',
+    summary: 'Resumen',
     value: 'Valor',
-    markets: 'Goles y 1X2',
+    markets: 'Mercados',
     counts: 'Corners y tarjetas',
     players: 'Jugadores',
-    teams: 'Equipos',
-    lineups: 'Alineaciones',
+    teams: 'Equipos y H2H',
   },
+  match: {
+    home: 'Local',
+    away: 'Visita',
+    draw: 'Empate',
+    back: 'Volver',
+    review: 'Revisar con Claude',
+  },
+  summary: {
+    finalProbability: 'Probabilidad final',
+    fairLine: ([home, draw, away]) => `Casa sin margen: ${home} · ${draw} · ${away}`,
+    expectedGoals: 'Goles esperados',
+    total: 'Total',
+    weight: 'Peso',
+    weightValue: (marketWeight) =>
+      `${Math.round(marketWeight * 100)}% cuotas · ${Math.round((1 - marketWeight) * 100)}% estadísticas`,
+    bestPick: 'Mejor pick',
+    allPicks: 'Ver todos los picks',
+    keys: 'Claves',
+    homeAtHome: (name) => `${name} en casa (datos recientes)`,
+    awayScored: (name) => `${name} anotó en`,
+    countOf: (count, total) => `${count} de ${total}`,
+    btts: (estimate) =>
+      estimate.empirical === null
+        ? 'Ambos anotan'
+        : `Ambos anotan (real: ${Math.round(estimate.empirical * 100)}% en ${Math.round(estimate.n)})`,
+  },
+  value: {
+    withValue: (count) => `Con valor · ${count}`,
+    allMarkets: 'Todos los mercados',
+    withoutValue: (count) => `Sin valor · ${count} ${plural(count, 'selección', 'selecciones')}`,
+    modeLabel: 'Qué cuotas mostrar',
+    groupLabel: 'Filtrar por mercado',
+  },
+  marketGroupsShort: {
+    result: '1X2',
+    goals: 'Goles',
+    btts: 'Ambos anotan',
+    firstGoal: 'Primer gol',
+    handicap: 'Hándicap',
+    halfTime: 'Descanso',
+    corners: 'Corners',
+    cards: 'Tarjetas',
+    other: 'Otros',
+  },
+  markets: {
+    mine: 'Mi prob. final',
+    fair: 'Casa sin margen',
+    market: 'Mercado',
+    result: 'Resultado',
+    resultRows: (names) => ({
+      home: `Gana ${names.home}`,
+      draw: 'Empate',
+      away: `Gana ${names.away}`,
+      homeDraw: `${names.home} o empate`,
+      drawAway: `Empate o ${names.away}`,
+      homeAway: `${names.home} o ${names.away}`,
+    }),
+    goals: 'Goles · más de',
+    over: (line) => `Más de ${line}`,
+    modelVsReal: 'Ver modelo y real por línea',
+    whoScores: 'Quién anota',
+    fairAndOdds: (fair, odds) => `casa ${fair} · ${odds}`,
+    fairOdds: (odds) => `cuota justa ${odds}`,
+    allLines: 'Ver todas las líneas',
+    handicapNote: 'Probabilidad de ganar sin contar la devolución. Las líneas de cuarto (±0.25, ±0.75) se calculan como dos medias apuestas.',
+    halfTimeAndFirstGoal: 'Medio tiempo y primer gol',
+    halfTimeRows: {
+      home: (names) => `${names.home} gana al descanso`,
+      draw: () => 'Empate al descanso',
+      away: (names) => `${names.away} gana al descanso`,
+    },
+    halfTimeOver: (line) => `Más de ${line} al descanso`,
+    firstGoalRows: {
+      home: (names) => `${names.home} anota primero`,
+      none: () => 'Sin goles',
+      away: (names) => `${names.away} anota primero`,
+    },
+  },
+  counts: {
+    corners: {
+      expected: 'Corners esperados',
+      lineTitle: (line) => `Corners · línea ${line}`,
+      overLine: (line) => `Más de ${line} corners`,
+      explain: (model) =>
+        model.marketTotal === null
+          ? `Solo estadísticas: lo que saca cada equipo y lo que concede el rival (total ${model.statsTotal.toFixed(1)}).`
+          : `Estadísticas ${model.statsTotal.toFixed(1)} · casa ${model.marketTotal.toFixed(1)}: el esperado mezcla ambos.`,
+    },
+    cards: {
+      expected: 'Tarjetas esperadas',
+      lineTitle: (line) => `Tarjetas · línea ${line}`,
+      overLine: (line) => `Más de ${line} tarjetas`,
+      explain: (model) =>
+        model.marketTotal === null
+          ? `Solo estadísticas de amarillas (total ${model.statsTotal.toFixed(1)}).`
+          : `Estadísticas ${model.statsTotal.toFixed(1)} · casa ${model.marketTotal.toFixed(1)}: el esperado mezcla ambos.`,
+    },
+    over: 'Más de',
+    under: 'Menos de',
+    chartLabel: (over, total, line) => `${over} de ${total} partidos pasaron ${line}`,
+    chartCaption: (name, count, line) => `Total en los partidos de ${name} esta temporada · ${count} pasaron ${line}`,
+    teamOver: (team, line) => `${team} más de ${line}`,
+    firstHalfOver: (line) => `1er tiempo: más de ${line}`,
+    firstHalfExpected: (total) => `Corners esperados en el 1er tiempo: ${total}.`,
+    allLines: 'Ver todas las líneas (por equipo y 1er tiempo)',
+    refereeUsed: (name, perGame, games, weight) =>
+      `Árbitro ${name ?? ''}: ${perGame} amarillas por partido en ${games} (pesa ${weight}% en las estadísticas).`,
+    noReferee: 'El JSON no trae el historial del árbitro: corre el script v4 actualizado para incluirlo.',
+  },
+  teams: {
+    sideLabel: 'Equipo',
+    recent: 'Últimos resultados · más reciente primero',
+    h2hTitle: (count) => `H2H · últimos ${count}`,
+    h2hRecord: (names, home, draws, away) => `${names.home} ${home} · Empates ${draws} · ${names.away} ${away}`,
+    h2hSummary: (summary, homeName) =>
+      `Ambos anotan ${summary.btts}/${summary.n} · Más de 2.5 ${summary.overs[2.5]}/${summary.n} · ` +
+      `${homeName} promedia ${summary.avg.goalsFor?.toFixed(1) ?? '—'} a favor y ${summary.avg.goalsAgainst?.toFixed(1) ?? '—'} en contra.`,
+    lineupTitle: (confirmed, team, formation) => `${confirmed ? 'XI confirmado' : 'XI probable'} · ${team}${formation ? ` ${formation}` : ''}`,
+    unconfirmed: 'Sin confirmar',
+  },
+  contextScreen: {
+    title: 'Contexto con Claude',
+    matches: (count) => `${count} ${plural(count, 'partido', 'partidos')}`,
+    steps: ['Copiar', 'Claude investiga', 'Pegar y aplicar'],
+    copyTitle: '1 · Copiar para Claude',
+    review: (count) => `Por revisar · ${count}`,
+    all: (count) => `Todos · ${count}`,
+    scopeLabel: 'Qué partidos copiar',
+    copyButton: (count) => `Copiar ${count} ${plural(count, 'partido', 'partidos')}`,
+    pasteTitle: '3 · Pegar el bloque de Claude',
+    pasteLabel: 'Bloque de contexto de Claude',
+    apply: 'Aplicar contexto',
+    valid: (matched, total) => `Bloque válido · ${matched} de ${total} ${plural(total, 'partido reconocido', 'partidos reconocidos')}`,
+    applied: 'Ajustes aplicados',
+    removeAll: 'Quitar todos',
+    toggle: (title) => `Usar el contexto de ${title}`,
+    noneApplied: 'Todavía no hay contexto aplicado. Copia el resumen, pégalo en el chat con Claude y trae su bloque.',
+  },
+  confidenceTier: { alta: 'high', media: 'medium', baja: 'low' },
   extra: {
     halfTime: 'Primer tiempo',
     halfTimeNote: ({ share, sample }) =>
@@ -75,6 +222,13 @@ export const TEXTS = Object.freeze({
     noData: 'El JSON no trae esta estadística para estos equipos.',
   },
   players: {
+    both: 'Ambos',
+    sideLabel: 'Qué equipo',
+    intro: 'Probabilidad de 1+ tiro a puerta (y 2+). Compara la cuota justa con la de tu casa: si te pagan más, hay valor.',
+    line: (team, status, per90, goals) => `${team} · ${status} · ${per90} a puerta/90 · ${goals} ${plural(goals, 'gol', 'goles')}`,
+    twoPlus: (two, fair) => `2+ ${two} · justa ${fair}`,
+    notStarting: 'No juegan de inicio',
+    detail: 'Ver tabla completa (tiros y tiros a puerta)',
     player: 'Jugador',
     minutes: "Min.",
     sotOne: 'TaP 1+',
@@ -109,20 +263,23 @@ export const TEXTS = Object.freeze({
   },
   day: {
     title: 'Partidos del día',
-    matches: 'Partidos',
+    fallbackTitle: 'Partidos',
+    matches: 'partidos',
+    matchesLabel: 'Partidos',
+    strongPicks: 'picks Alta o Media',
+    unconfirmed: 'XI sin confirmar',
+    all: 'Todos',
+    withValue: 'Con valor',
+    filters: 'Filtrar partidos',
+    noneForFilter: 'Ningún partido con ese filtro.',
+    noPick: 'Sin picks con valor',
+    bestPicks: 'Mejores picks del día',
+    versus: 'vs',
+    buildCombo: 'Armar combinada con estos picks',
     valuePicks: 'Picks con valor',
     highPicks: (count) => `${count} de confianza alta`,
     bestEv: 'Mejor EV',
     alerts: 'Alertas',
-  },
-  ranking: {
-    title: (count) => `Ranking de picks (${count})`,
-    market: 'Mercado',
-    minTier: 'Confianza',
-    minOdds: 'Cuota mínima',
-    tierAtLeast: (tier) => (tier === 'none' ? 'Todos' : `${TIER_NAMES[tier]} o más`),
-    empty: 'Ningún pick pasa los filtros.',
-    emptyHint: 'Baja la cuota mínima o el nivel de confianza.',
   },
   marketGroups: {
     all: 'Todos',
@@ -137,17 +294,38 @@ export const TEXTS = Object.freeze({
     other: 'Otros',
   },
   combos: {
-    title: 'Combinadas',
-    safest: 'Más probables',
-    bestValue: 'Más valor',
-    selections: (count) => `${count} selecciones`,
-    totalOdds: 'Cuota',
-    probability: 'Prob.',
-    empty: 'No hay suficientes picks para armar una combinada.',
-    rules: (config, candidates) =>
-      `Un pick por partido, EV positivo, confianza ${TIER_NAMES[config.minTier].toLowerCase()} o más, ` +
-      `cuota ≥ ${config.minOdds.toFixed(2)}, de ${config.minSelections} a ${config.maxSelections} selecciones. ` +
-      `Partidos con picks elegibles: ${candidates}. Se asume independencia entre partidos.`,
+    title: 'Combinada',
+    safest: 'La más probable',
+    bestValue: 'La de más valor',
+    selections: (count) => `Selecciones · ${count}`,
+    totalOdds: 'Cuota total',
+    probability: 'Probabilidad',
+    fairOdds: 'Cuota justa',
+    suggested: 'Sugeridas',
+    suggestionTotals: (probability, ev) => `Probabilidad ${probability} · EV ${ev}`,
+    use: 'Usar esta combinada',
+    canAdd: 'Puedes agregar',
+    eligible: 'Picks elegibles',
+    withThis: (odds, probability) => `Con esta: cuota ${odds} · prob. ${probability}`,
+    single: (probability, ev) => `Prob. ${probability} · EV ${ev}`,
+    add: 'Agregar a la combinada',
+    remove: 'Quitar de la combinada',
+    clear: 'Vaciar combinada',
+    noCandidates: 'No hay picks que cumplan las reglas.',
+    noCandidatesHint: 'Baja la cuota mínima o el nivel mínimo.',
+    withoutCandidates: (titles) => `Sin picks elegibles: ${titles.join(', ')}.`,
+    rules: 'Reglas',
+    minOdds: 'Cuota mínima por selección',
+    minOddsHint: '«Equipo anota» acepta desde 1.15',
+    less: 'Bajar cuota mínima',
+    more: 'Subir cuota mínima',
+    minTier: 'Nivel mínimo',
+    onePerMatch: 'Un pick por partido',
+    independence: 'Asume que los partidos son independientes. Una combinada falla la mayoría de las veces aunque cada pick sea bueno: apuesta poco.',
+    copy: 'Copiar combinada',
+    copied: 'Combinada copiada.',
+    copyTotals: (odds, probability, ev) => `Cuota ${odds} · probabilidad ${probability} · EV ${ev}`,
+    moreCandidates: (count) => `Ver ${count} más`,
   },
   errors: {
     emptyInput: () => 'No hay JSON para analizar: pega el texto o elige un archivo.',
@@ -158,7 +336,7 @@ export const TEXTS = Object.freeze({
     expectedSingle: ({ count }) =>
       `Elegiste "Un partido", pero el JSON trae ${count} partidos. Cambia el modo a Auto o Varios.`,
     contextInLoader: () => 'Eso es un bloque de contexto de Claude: pégalo en el panel "Contexto de Claude", no aquí.',
-    historyInLoader: () => 'Eso es un archivo de resultados o un respaldo: cárgalo en el Historial (📒), no aquí.',
+    historyInLoader: () => 'Eso es un archivo de resultados o un respaldo: cárgalo en el Historial, no aquí.',
     notResults: () => 'No es un archivo de resultados: debe venir del script "Copiar script" del Historial.',
     notBackup: () => 'No es un respaldo del historial de esta página.',
     notContext: () => 'No es un bloque de contexto válido: debe tener "tipo": "contexto-claude" y una lista "partidos".',
@@ -281,7 +459,9 @@ export const TEXTS = Object.freeze({
   },
   meta: {
     round: (round) => `Jornada ${round}`,
-    referee: (name) => `Árbitro: ${name}`,
+    roundShort: (round) => `J${round}`,
+    referee: (name, stats) =>
+      `Árbitro: ${name}${stats ? ` (${stats.yellowsPerGame.toFixed(1)} amarillas por partido en ${stats.games})` : ''}`,
     position: (position) => `${position}° en la tabla`,
     versus: 'vs',
     expectedGoalsTitle: 'Goles esperados (final)',
@@ -320,6 +500,7 @@ export const TEXTS = Object.freeze({
   },
   history: {
     title: 'Historial',
+    eyebrow: 'Tus apuestas y los picks del modelo',
     back: '← Volver al análisis',
     loading: 'Cargando historial…',
     modes: { bets: 'Mis apuestas', model: 'Picks del modelo' },
@@ -344,7 +525,7 @@ export const TEXTS = Object.freeze({
       model: 'Todavía no hay picks con valor guardados.',
     },
     emptyHint: {
-      bets: 'Toca "+" junto a un pick en la pestaña Valor o en el ranking de Picks.',
+      bets: 'Toca "+" junto a un pick en la pestaña Valor de un partido.',
       model: 'Cada análisis guarda solo sus predicciones (partidos que aún no empiezan).',
     },
     columns: {
@@ -373,18 +554,18 @@ export const TEXTS = Object.freeze({
       ['Sofascore', 'Pégalo en la consola (F12) de sofascore.com: descarga un .json.'],
       ['Liquidar', 'Sube ese archivo (o pega su texto) aquí.'],
     ],
-    copyScript: (count) => `📋 Copiar script (${count} ${plural(count, 'partido', 'partidos')})`,
+    copyScript: (count) => `Copiar script (${count} ${plural(count, 'partido', 'partidos')})`,
     scriptCopied: (count) => `Script de ${count} ${plural(count, 'partido', 'partidos')} copiado. Pégalo en la consola de sofascore.com.`,
     scriptCopyFailed: 'No se pudo copiar: el script quedó en el cuadro de texto, cópialo a mano.',
-    uploadResults: '📂 Subir resultados',
+    uploadResults: 'Subir resultados',
     settleButton: 'Liquidar con el texto pegado',
     settledNow: (count, finished, total) =>
       `${count} ${plural(count, 'selección liquidada', 'selecciones liquidadas')} ` +
       `(${finished} de ${total} ${plural(total, 'partido terminado', 'partidos terminados')}).`,
     nothingSettled: 'No se liquidó nada: los partidos no han terminado o no estaban en el historial.',
     backupTitle: 'Respaldo',
-    export: '⬇️ Exportar',
-    import: '⬆️ Importar',
+    export: 'Exportar',
+    import: 'Importar',
     clear: 'Borrar historial',
     confirmClear: '¿Borrar todo el historial de este navegador? No se puede deshacer (exporta antes un respaldo).',
     exported: 'Respaldo descargado.',
@@ -405,8 +586,13 @@ export const TEXTS = Object.freeze({
   },
   settings: {
     title: 'Ajustes del modelo',
-    saved: 'Ajustes guardados en este navegador.',
+    eyebrow: 'Se guardan en este navegador',
+    saved: 'Ajuste guardado y partidos recalculados.',
     reset: 'Valores por defecto restaurados.',
+    resetButton: 'Restaurar valores por defecto',
+    hint: 'Cada cambio recalcula todos los partidos cargados al soltar el control.',
+    theme: 'Tema',
+    themes: { dark: 'Oscuro', light: 'Claro', auto: 'Sistema' },
     defaultValue: (value) => `Por defecto: ${value}`,
     groups: {
       model: 'Modelo',
@@ -416,6 +602,10 @@ export const TEXTS = Object.freeze({
     },
     fields: {
       'lambda.marketWeight': 'Peso de las cuotas en los goles esperados',
+      'lambda.xgWeight': 'Peso del xG frente a los goles reales',
+      'counts.marketWeight': 'Peso de las cuotas en corners y tarjetas',
+      'lambda.multiplicative': 'Goles esperados = ataque × defensa ÷ media de la liga',
+      'poisson.dixonColesRho': 'Corrección de empates bajos (Dixon-Coles, 0 = sin corrección)',
       'lambda.homeAdvantage': 'Ventaja de local (multiplicador)',
       'lambda.awayDisadvantage': 'Desventaja de visita (multiplicador)',
       'lambda.venueSplitWeight': 'Peso de casa/fuera en las estadísticas',
@@ -426,9 +616,12 @@ export const TEXTS = Object.freeze({
       'value.minProbability': 'Probabilidad mínima para recomendar',
       'value.minOdds': 'Cuota mínima para recomendar',
       'value.minSampleHigh': 'Muestra mínima para confianza alta',
+      'value.maxEdge': 'Ventaja máxima creíble sobre la casa',
       'combos.minOdds': 'Cuota mínima por selección',
       'combos.maxSelections': 'Máximo de selecciones',
       'schedule.enabled': 'Ajustar por fuerza del rival (calendario)',
+      'recency.enabled': 'Dar más peso a los partidos recientes',
+      'recency.halfLifeDays': 'Días tras los que un partido pesa la mitad',
       'absences.enabled': 'Restar goles por bajas importantes',
       'absences.replacement': 'Aporte que recupera el reemplazo',
       'context.maxAdjustment': 'Tope de cada ajuste de Claude',
@@ -472,7 +665,7 @@ const MARKET_LABELS = {
   cards: (market) => `Tarjetas ${market.line}`,
 };
 
-const signedLine = (line) => (line > 0 ? `+${line}` : String(line));
+const signedLine = (line) => (line > 0 ? `+${line}` : line === 0 ? '±0' : String(line));
 
 const SELECTION_LABELS = {
   result: { home: (n) => n.home, draw: () => 'Empate', away: (n) => n.away },
@@ -490,6 +683,25 @@ const SELECTION_LABELS = {
   corners: { over: (_, line) => `Más de ${line}`, under: (_, line) => `Menos de ${line}` },
   cards: { over: (_, line) => `Más de ${line}`, under: (_, line) => `Menos de ${line}` },
 };
+
+/** Texto natural de una selección ("Menos de 2.5 goles", "Ambos anotan: No"). */
+const PICK_TITLES = {
+  result: { home: (n) => `Gana ${n.home}`, draw: () => 'Empate', away: (n) => `Gana ${n.away}` },
+  drawNoBet: { home: (n) => `${n.home}, empate no apuesta`, away: (n) => `${n.away}, empate no apuesta` },
+  btts: { yes: () => 'Ambos anotan: Sí', no: () => 'Ambos anotan: No' },
+  total: { over: (_, line) => `Más de ${line} goles`, under: (_, line) => `Menos de ${line} goles` },
+  resultFirstHalf: {
+    home: (n) => `${n.home} gana al descanso`,
+    draw: () => 'Empate al descanso',
+    away: (n) => `${n.away} gana al descanso`,
+  },
+  corners: { over: (_, line) => `Más de ${line} corners`, under: (_, line) => `Menos de ${line} corners` },
+  cards: { over: (_, line) => `Más de ${line} tarjetas`, under: (_, line) => `Menos de ${line} tarjetas` },
+};
+
+export function pickTitle(market, key, names) {
+  return PICK_TITLES[market.type]?.[key]?.(names, market.line) ?? selectionLabel(market, key, names);
+}
 
 export function marketLabel(market) {
   return MARKET_LABELS[market.type]?.(market) ?? market.name;

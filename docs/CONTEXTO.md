@@ -40,7 +40,7 @@ Sofascore (navegador)                Página (navegador)                 Claude 
 
 - **v2:** un partido. Imprime el JSON en consola (`copy(JSON.stringify(window._sofa))`).
 - **v4:** varios partidos. Se filtran por `FECHA`, `TORNEO`, `TORNEO_ID`, `HORA` o `IDS` y se descarga un archivo.
-- Si el script se corre otra vez en la misma pestaña da error de `const` ya declarada: hay que recargar con F5.
+- El v4 va dentro de un bloque `{ }`, así que se puede pegar varias veces sin recargar. Hace varias peticiones a la vez (`PETICIONES_A_LA_VEZ`), no repite URLs y, si Sofascore responde 429/403, baja el ritmo, espera y reintenta solo.
 - El endpoint `scheduled-events` devuelve 404. Por eso el script busca los partidos desde los endpoints del torneo.
 
 ---
@@ -67,6 +67,7 @@ Son iguales en v2 y en cada elemento de `partidos`:
   "hora": "21/10/2026, 19:00:00",                  // texto en hora local del usuario
   "estado": "Not started",                         // "1st half", "2nd half"… si ya empezó
   "marcador": "---", "arbitro": "…", "estadio": "…",
+  "arbitroStats": { "partidos": 120, "amarillas": 540, "rojas": 10, "dobleAmarilla": 4 }, // historial del árbitro (opcional)
   "forma": { "homeTeam": { "position": 5, "form": ["L","D","W","D","W"] }, "awayTeam": {…} },
   "h2hResumen": { "homeWins": 2, "awayWins": 5, "draws": 3 },
   "statsEnVivo": {},
@@ -134,11 +135,11 @@ Ajustes guardados ─► app/settings ─► config efectiva ──────�
 ```
 
 ```
-index.html          barra superior (ajustes, tema), panel de carga, panel de contexto, diálogo de ajustes
+index.html          esqueleto: barra superior, formulario de carga, contenedor de pantallas, barra inferior, diálogo de apuesta
 css/
-  tokens.css        colores con light-dark(): un solo valor por token para claro y oscuro
-  layout.css        estructura pensada primero para celular (390 px)
-  components.css    tarjetas, pestañas, tablas, badges, KPIs, mapa de calor, combinadas, diálogo
+  tokens.css        ÚNICO lugar con colores, tipografías, radios y espacios (light-dark(): oscuro y claro)
+  layout.css        reset, barra superior, barra inferior (celular), pantallas, lista lateral + detalle (escritorio)
+  components.css    componentes en BEM, en el mismo orden que ui/components.js
 js/
   main.js           punto de entrada: carga → importación → análisis → estado → interfaz
   themeInit.js      script clásico en <head>: aplica el tema guardado antes de pintar
@@ -147,7 +148,7 @@ js/
   texts.js          TODOS los textos de la interfaz (español), incluido el texto para Claude
   types.js          modelo interno (JSDoc)
   utils/            math.js (mean, weightedMean, clamp…), text.js (normalizeName, namesMatch)
-  io/               importError, formatDetector, jsonParser, fileReader
+  io/               importError, formatDetector, jsonParser, fileReader, historyDb, sessionStore (última carga)
   adapters/         common (compartido), v2Adapter, v4Adapter
   app/              casos de uso: importMatches, analyzeMatches, importContext, settings,
                     history (registros + almacén), importResults (resultados y respaldos)
@@ -179,23 +180,23 @@ js/
     analyzeMatch.js   orquestador
   ui/
     dom.js            h() seguro (nunca innerHTML)
-    components.js     card, dataTable, probabilityCell, tabs, kpi, switch, badges, escudo generado
+    components.js     piezas visuales: card, stat(s), chips, segmented, tabs, badges, barras, tablas, botones
+    icons.js          ÚNICA fuente de íconos SVG (icon('nombre') y <span data-icon> en el HTML)
+    navigation.js     lista de pantallas: alimenta la barra superior y la inferior
     formatters.js     %, cuotas, fechas
     store.js          estado + suscripción
     preferences.js    localStorage que nunca lanza
-    theme.js          selector de tema (auto → claro → oscuro)
-    loaderPanel.js    formulario de carga (se pliega al analizar)
-    contextPanel.js   "Copiar para Claude" y aplicar el bloque
-    settingsPanel.js  diálogo de ajustes
+    theme.js          tema (oscuro, claro o sistema), se elige en Ajustes
+    loaderPanel.js    eventos del formulario de carga y tarjeta "Último análisis"
     claudePrompt.js   texto compacto para Claude
     historyController.js  acciones del historial (registrar, liquidar, respaldo)
     betDialog.js      diálogo "Registrar apuesta"
     resultsScriptSource.js  script de consola de resultados (función autosuficiente, se pasa a texto)
     resultsScript.js  arma ese script con los ids pendientes
     download.js       descargar un texto como archivo
-    renderers/        results (vistas), daySummary, picksRanking, combosView, matchList, matchDetail (pestañas),
-                      matchHeader, alertsPanel, overview, valueTable, probabilityTables, extraMarkets,
-                      playersTable, teamStats, lineups
+    screens/          una pantalla por archivo: day, match, combo, context, settings, history
+                      shared.js (nombres, mejor pick, tarjeta de partido)
+      matchTabs/      pestañas del partido: summary, value, markets, counts, players, teams
 tests/              node --test (sin dependencias), fixtures sintéticos en tests/fixtures
 scripts/            scripts de consola de Sofascore que generan el JSON (v2 y v4)
 docs/CONTEXTO.md    este archivo
@@ -203,10 +204,15 @@ docs/CONTEXTO.md    este archivo
 
 ### Interfaz
 
-- **Vistas** (solo con varios partidos): Resumen del día · Partidos (lista + detalle) · Picks (ranking) · Combinadas.
-- **Historial** (📒 en la barra superior): pantalla aparte, disponible aunque no haya partidos cargados (ver §9 bis). `io/historyDb.js` guarda en IndexedDB.
-- **Pestañas del partido:** Resumen (KPIs, λ, mapa de marcadores, contexto) · Valor · Goles y 1X2 (resultado, goles, primer tiempo, hándicap) · Corners y tarjetas · Jugadores · Equipos · Alineaciones.
-- En el celular la lista de partidos es un carrusel horizontal y las tablas tienen scroll propio: la página nunca se desborda.
+- **Pantallas** (`ui/navigation.js`): Día · Partido · Combinada · Contexto · Historial · Ajustes, más la de carga. En el celular van en la barra inferior; en escritorio (≥ 900 px) en la barra superior, y el partido se ve con la lista del día al costado. Sin partidos cargados, las de análisis muestran la carga.
+- **Cómo se dibuja:** `main.js` guarda todo en el store; cada cambio redibuja la pantalla activa con su función de `ui/screens/`. Ajustes solo se redibuja al entrar, al restaurar o al cambiar el tema (así los deslizadores no pierden el foco). El formulario de carga y los cuadros de texto de contexto y resultados son nodos fijos: no pierden lo pegado.
+- **Para agregar algo:** una pantalla = archivo en `ui/screens/` + entrada en `navigation.js` y `SCREEN_VIEWS` (main.js). Una pestaña del partido = archivo en `ui/screens/matchTabs/` + entrada en `MATCH_TABS` (match.js). Un color o medida = token en `tokens.css`. Un texto = `texts.js`.
+- **Combinada:** el usuario la arma (o parte de una sugerida) con reglas propias (cuota mínima, nivel, un pick por partido) y la copia como texto. `domain/combos.js` da los candidatos y el precio.
+- **Contexto:** se puede copiar solo los partidos "por revisar" (alerta de divergencia) y desactivar el ajuste de cada partido con su casilla.
+- **Historial:** pantalla aparte, disponible aunque no haya partidos cargados (ver §9 bis). `io/historyDb.js` guarda en IndexedDB.
+- **Última carga:** `io/sessionStore.js` guarda en IndexedDB (base `analizador-sesion`) los JSON tal como se subieron, el modo y el bloque de Claude. Al abrir la página se vuelven a analizar solos. «Limpiar» la borra y cargar otros datos la reemplaza.
+- **Pestañas del partido:** Resumen (avisos, probabilidad final, goles esperados, marcadores, mejor pick, claves, contexto) · Valor (tarjetas Mi prob. vs Casa, filtros por mercado, "+" para registrar) · Mercados (resultado, goles, quién anota, hándicap, medio tiempo y primer gol) · Corners y tarjetas (esperado, línea de la casa, partidos contra la línea, todas las líneas) · Jugadores (1+ y 2+ a puerta, quién no empieza) · Equipos y H2H (bloques, últimos resultados, H2H, XI y bajas).
+- Responsive sin desbordes: probado a 360, 390, 768 y 1440 px. Las tablas largas tienen scroll propio.
 
 ### Reglas de código limpio (obligatorias)
 
@@ -225,17 +231,17 @@ docs/CONTEXTO.md    este archivo
 
 ### 6.1 Goles esperados por estadísticas (`lambdas.statsLambdas`)
 
-- `ataque(equipo) = promedio(goles a favor, xG a favor)` sobre el bloque **reciente** (temporada actual + otra competición).
-- `defensa(equipo) = promedio(goles en contra, xG en contra)`.
-- `global_local = promedio(ataque(local), defensa(visita)) × 1.10` (la visita usa × 0.90; la Liga MX usa 1.15 / 0.86, ver `config/leagues.js`).
-- `split_local = promedio(ataque(local en casa), defensa(visita fuera))`. Solo se usa si ambos tienen ≥ 4 partidos.
+- `ataque(equipo) = 0.35 × goles a favor + 0.65 × xG a favor` sobre el bloque **reciente** (temporada actual + otra competición). El xG pesa más porque tiene menos ruido (`lambda.xgWeight`).
+- `defensa(equipo) = 0.35 × goles en contra + 0.65 × xG en contra`.
+- **Modelo multiplicativo** (`lambda.multiplicative`): `global_local = ataque(local) × defensa(visita) ÷ media × 1.10`, donde `media` = goles por equipo y partido de la tabla (Σ GF / Σ PJ). La visita usa × 0.90; la Liga MX usa 1.15 / 0.86 (ver `config/leagues.js`). Sin tabla útil (< 6 equipos) se usa `promedio(ataque, defensa)`.
+- `split_local = ataque(local en casa) × defensa(visita fuera) ÷ (media × 1.10)` (la visita divide por `media × 0.90`). Solo se usa si ambos tienen ≥ 4 partidos.
 - `λ_stats = 0.65 × global + 0.35 × split`. Si no hay split, se usa el global.
-- Si no hay datos, se usa `fallbackGoals` (1.35).
+- Si no hay datos, se usa `fallbackGoals` (1.35). El resultado se limita a 0.2–4.5.
 - Antes de promediar se aplican los ajustes de la fase 4 (§6.8) y después las bajas (§6.9).
 
 ### 6.2 Goles esperados por mercado (`fitMarketLambdas`)
 
-Se buscan los λ (local, visita) cuya grilla de Poisson reproduce mejor el **1X2 sin margen** y el **Over/Under** de la línea más cercana a 2.5. Búsqueda en grilla: gruesa (paso 0.05, rango 0.2–4.5) y luego fina (paso 0.01).
+Se buscan los λ (local, visita) cuya grilla de Poisson (con la misma corrección de Dixon-Coles de §6.4) reproduce mejor el **1X2 sin margen** y el **Over/Under** de la línea más cercana a 2.5. Búsqueda en grilla: gruesa (paso 0.05, rango 0.2–4.5) y luego fina (paso 0.01).
 
 ### 6.3 Goles esperados finales
 
@@ -243,7 +249,7 @@ Se buscan los λ (local, visita) cuya grilla de Poisson reproduce mejor el **1X2
 
 ### 6.4 Poisson
 
-Grilla de marcadores independiente de 0 a 10 goles por equipo, normalizada a 1. De ahí salen el 1X2, la doble oportunidad, la distribución del total, ambos anotan, cada equipo anota, el primer gol, los marcadores más probables y la diferencia de goles (hándicap).
+Grilla de marcadores de 0 a 10 goles por equipo, normalizada a 1, con la **corrección de Dixon-Coles** (`poisson.dixonColesRho` = −0.08): `P(0-0) × (1 − λL·λV·ρ)`, `P(0-1) × (1 + λL·ρ)`, `P(1-0) × (1 + λV·ρ)`, `P(1-1) × (1 − ρ)`. Con ρ < 0 suben el 0-0 y el 1-1 y bajan el 1-0 y el 0-1, que dos Poisson independientes reparten mal. El primer tiempo usa Poisson sin corrección. De ahí salen el 1X2, la doble oportunidad, la distribución del total, ambos anotan, cada equipo anota, el primer gol, los marcadores más probables y la diferencia de goles (hándicap).
 
 Primer gol: `P(sin goles) = P(0-0)`, y `P(local primero) = (1 − P(0-0)) × λL / (λL + λV)`.
 
@@ -252,7 +258,7 @@ Primer gol: `P(sin goles) = P(0-0)`, y `P(local primero) = (1 − P(0-0)) × λL
 Se aplica a los mercados de sí/no (ambos anotan, Over X.5, local anota, visita anota) y a las líneas de corners y tarjetas:
 
 - **Lo ocurrido realmente** = aciertos en los partidos del local **en casa**, más los del visitante **fuera**, más el H2H con peso 0.5 por partido (el H2H solo en goles).
-- `peso = min(0.5, n / (n + 12))`. El modelo vale como 12 partidos virtuales y la realidad pesa como máximo 50%.
+- `peso = min(0.3, n / (n + 30))`. El modelo vale como 30 partidos virtuales y la realidad pesa como máximo 30% (un porcentaje de 10 partidos tiene ±15% de error).
 - `final = (1 − peso) × modelo + peso × real`.
 
 ### 6.6 Valor (`value.js`)
@@ -272,6 +278,7 @@ Se aplica a los mercados de sí/no (ambos anotan, Over X.5, local anota, visita 
 
 - **Goles, ambos anotan, corners y tarjetas:** |modelo − real| ≤ 10 pts. Si no, el nivel se limita a **Media**.
 - **1X2, DC, DNB, primer gol, hándicap y 1X2 del primer tiempo:** |prob. por estadísticas − prob. justa de la casa| ≤ 12 pts. Si no, se limita a **Media-baja**.
+- **Ventaja sospechosa (todos los mercados):** si la prob. propia supera a la justa de la casa en más de 15 pts (`value.maxEdge`), el nivel se limita a **Media-baja**: casi siempre es un error o un dato que falta.
 
 ### 6.7 Mercados de la fase 3
 
@@ -279,8 +286,8 @@ Se aplica a los mercados de sí/no (ambos anotan, Over X.5, local anota, visita 
 |---|---|
 | **Hándicap asiático** (`handicap.js`) | Distribución de la diferencia de goles desde la grilla. Línea entera: devolución con diferencia exacta. Línea de cuarto (±0.25, ±0.75): promedio de las dos líneas vecinas (media apuesta en cada una); equivale a `win·(c−1) + halfWin·(c−1)/2 − halfLoss/2 − loss`. La línea del mercado es la del local; la visita usa la opuesta |
 | **Primer tiempo** (`halfTime.js`) | `λ_HT = λ × proporción`, con `proporción = (goles al descanso + 20 × 0.45) / (goles totales + 20)` sobre los partidos recientes de ambos equipos. 1X2 y Over 0.5/1.5/2.5 del primer tiempo |
-| **Corners** (`counts.js`) | `esperado_local = promedio(corners del local en casa, corners que concede la visita fuera)` (si hay < 4 partidos con dato, se usan todos los recientes). Total con **binomial negativa** (varianza = 1.3 × media) y mezcla empírica. También por equipo y del 1er tiempo (`1ST Corner kicks`). `cornersExtra` de Claude se suma al total |
-| **Tarjetas** | Igual que corners con amarillas (dispersión 1.4). El JSON no trae árbitro ni rojas. `tarjetasExtra` de Claude se suma al total |
+| **Corners** (`counts.js`) | `esperado_local = promedio(corners del local en casa, corners que concede la visita fuera)` (si hay < 4 partidos con dato, se usan todos los recientes). Total esperado = `0.5 × total implícito en la cuota de la casa + 0.5 × estadísticas` (`counts.marketWeight`; el implícito sale de la línea más pareja sin margen). Total con **binomial negativa** (varianza = 1.3 × media) y mezcla empírica. También por equipo y del 1er tiempo (`1ST Corner kicks`). `cornersExtra` de Claude se suma al total |
+| **Tarjetas** | Igual que corners con amarillas (dispersión 1.4). Si el JSON trae `arbitroStats`, el total por estadísticas se mezcla antes con las amarillas por partido del árbitro: `peso = min(0.35, partidos / (partidos + 40))`. Después va la mezcla con la cuota. `tarjetasExtra` de Claude se suma al total |
 | **Jugadores** (`players.js`) | `λ = ritmo/90 × min_esperados/90 × √(lo que concede el rival / media de liga)`; titular 80', suplente 25', duda 40', baja 0'. Sin alineación, minutos/partidos jugados. Con menos de 450' el ritmo se encoge hacia la media del puesto (encogimiento continuo). `P(1+) = 1 − e^(−λ)`, `P(2+) = 1 − e^(−λ)(1+λ)`, para tiros a puerta y tiros totales |
 
 ### 6.8 Ajustes de la fase 4 (`adjustments.js`)
@@ -289,7 +296,8 @@ Solo afectan al λ por estadísticas; las tablas siguen mostrando lo ocurrido.
 
 - **Calendario:** `fuerza(rival) = puntos por partido del rival / media de la liga`, limitada a 0.5–1.8, con exponente 0.5. Goles y xG a favor se multiplican por ella y los en contra se dividen. Rivales que no están en la tabla: fuerza 1.
 - **Nivel de liga:** en el bloque "otra competición", el factor es `coef(otra) / coef(competición del partido)` (tabla en `config/leagues.js`; si falta uno de los dos, 1).
-- **Peso por competición:** amistosos 0, previas 0.6, copas 0.7, el resto 1. Se usa como peso en los promedios.
+- **Peso por competición:** amistosos 0, previas 0.6, copas 0.7, el resto 1. Se usa como peso en los promedios. Los partidos de peso 0 se quitan antes de todo (no cuentan en corners, tarjetas, porcentajes empíricos, primer tiempo ni muestra).
+- **Antigüedad** (`recency`): el peso de cada partido se multiplica por `0.5 ^ (días / 120)`, contando los días desde el partido más reciente de los datos. Un partido de hace 4 meses pesa la mitad que el de la última jornada.
 
 ### 6.9 Bajas cuantificadas (`absences.js`)
 
@@ -306,27 +314,30 @@ Un pick por partido, EV > 0, nivel ≥ media, cuota ≥ 1.50 (excepciones en `co
 | Parámetro | Valor | Qué controla |
 |---|---|---|
 | `lambda.marketWeight` | 0.6 | Peso de las cuotas en λ final |
+| `lambda.xgWeight` | 0.65 | Peso del xG frente a los goles reales |
+| `lambda.multiplicative` | sí | Ataque × defensa ÷ media de la liga |
 | `lambda.homeAdvantage` / `awayDisadvantage` | 1.10 / 0.90 | Localía en el cálculo estadístico global |
 | `lambda.venueSplitWeight` | 0.35 | Peso de casa/fuera en λ estadístico |
 | `lambda.minVenueSample` | 4 | Partidos mínimos para usar casa/fuera |
 | `lambda.fallbackGoals` | 1.35 | λ sin datos |
 | `lambda.fit` | 0.2–4.5, pasos 0.05 / 0.01 | Búsqueda de λ de mercado |
-| `poisson.maxGoals` | 10 | Tamaño de la grilla |
-| `empirical.priorStrength` / `maxWeight` / `h2hWeight` | 12 / 0.5 / 0.5 | Mezcla con lo empírico |
+| `poisson.maxGoals` / `dixonColesRho` | 10 / −0.08 | Tamaño de la grilla, corrección de empates bajos |
+| `recency.*` | activo, vida media 120 días | Peso por antigüedad |
+| `empirical.priorStrength` / `maxWeight` / `h2hWeight` | 30 / 0.3 / 0.5 | Mezcla con lo empírico |
 | `data.anomalousTotalGoals` / `smallSample` | 12 / 6 | Marcadores de penales, muestra chica |
-| `value.*` | 0.08 / 0.04 / 0.30 / 1.15 / 0.10 / 0.12 / 8 | Niveles de confianza (§6.6) |
+| `value.*` | 0.08 / 0.04 / 0.30 / 1.15 / 0.10 / 0.12 / 8 / 0.15 | Niveles de confianza (§6.6) |
 | `schedule.*` | activo, exp. 0.5, 0.5–1.8, ≥ 6 equipos | Ajuste por calendario |
 | `leagues.*` | `config/leagues.js` | Coeficientes, pesos por competición, localía por liga |
 | `absences.*` | activo, reemplazo 0.5, duda 0.5, ≥ 5%, mín. 0.7 | Bajas cuantificadas |
 | `alerts.divergenceGoals` / `divergenceProbability` | 0.6 / 0.15 | Alerta de divergencia |
 | `halfTime.*` | 0.45, 20 goles virtuales, líneas 0.5–2.5 | Primer tiempo |
-| `counts.*` | dispersión 1.3 / 1.3 / 1.4, líneas | Corners, corners 1T, amarillas |
+| `counts.*` | peso de cuotas 0.5, dispersión 1.3 / 1.3 / 1.4, líneas, árbitro 0.35 / 40 | Corners, corners 1T, amarillas |
 | `players.*` | 80'/25'/40', 450', medias por puesto, 4.5 TaP / 12.5 tiros | Proyección de jugadores |
 | `context.maxAdjustment` | 0.3 | Tope de cada ajuste de Claude |
 | `combos.*` | 2–4, ≥ media, ≥ 1.50, 2 candidatos, 3 mostradas | Combinadas |
 | `display.*` | líneas de goles y hándicap, 8 marcadores, mapa 6×6 | Lo que se muestra |
 
-**Panel de ajustes (⚙️):** `app/settings.js` define qué parámetros se pueden editar desde la página, con sus límites. Se guardan en `localStorage` (`analizador.settings`) solo los que difieren del valor por defecto; al leerlos se validan y limitan.
+**Pantalla de ajustes:** `app/settings.js` define qué parámetros se pueden editar desde la página, con sus límites. Se guardan en `localStorage` (`analizador.settings`) solo los que difieren del valor por defecto; al leerlos se validan y limitan.
 
 ---
 
@@ -417,6 +428,7 @@ La página es estática, así que todo se guarda **en el navegador** (IndexedDB,
 
 - [x] **Fase 1 — MVP:** carga, detección v2/v3/v4, Poisson, λ, mezcla empírica, 1X2, DC, DNB, Over/Under, ambos anotan, primer gol, valor, estadísticas por bloque, H2H, alineaciones, alertas.
 - [x] **Rediseño visual:** tokens con `light-dark()`, Inter, barra superior fija, panel de carga plegable, cabecera con escudos generados, KPIs, barras de probabilidad en tablas, mapa de calor de marcadores, pestañas, carrusel de partidos en el celular.
+- [x] **Rediseño 2 (propuesta "Analizador"):** tema oscuro con acento lima, Barlow Condensed + Inter, barra inferior en el celular y navegación superior con lista lateral en escritorio, una pantalla por sección (Día, Partido, Combinada, Contexto, Historial, Ajustes). El mapa de calor de marcadores y el ranking filtrable se reemplazaron por los 8 marcadores más probables y los mejores picks del día.
 - [x] **Fase 2 — Varios partidos:** resumen del día, ranking global con filtros (mercado, nivel, cuota mínima), combinadas automáticas, pestañas dentro del partido.
 - [x] **Fase 3 — Más mercados:** hándicap asiático, primer tiempo, corners (total, por equipo, 1er tiempo), tarjetas, jugadores (1+ y 2+ tiros y tiros a puerta).
 - [x] **Fase 4 — Inteligencia de datos:** calendario, bajas cuantificadas, coeficientes de liga, peso por competición, localía por liga, alertas `marketDivergence` y `keyPlayerOut`.

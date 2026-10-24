@@ -58,7 +58,7 @@ describe('empírico', () => {
   it('el peso de lo empírico tiene tope', () => {
     const estimate = blendWithEmpirical(0.5, { rate: 1, n: 1000 }, CONFIG.empirical);
     assert.equal(estimate.weight, CONFIG.empirical.maxWeight);
-    assert.equal(estimate.final, 0.75);
+    assert.ok(Math.abs(estimate.final - (0.5 + 0.5 * CONFIG.empirical.maxWeight)) < 1e-9);
   });
 
   it('sin datos devuelve el modelo', () => {

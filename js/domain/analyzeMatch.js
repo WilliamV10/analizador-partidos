@@ -3,7 +3,7 @@
  */
 import { CONFIG } from '../config.js';
 import { absenceImpact } from './absences.js';
-import { adjustRows, findLeagueEntry, leagueCoefficient, strengthLookup } from './adjustments.js';
+import { adjustRows, competitionWeight, findLeagueEntry, leagueCoefficient, strengthLookup } from './adjustments.js';
 import { summarize } from './aggregates.js';
 import { buildAlerts } from './alerts.js';
 import { applyContextToLambdas } from './context.js';
@@ -11,11 +11,12 @@ import { countModel } from './counts.js';
 import { binaryEstimates } from './empirical.js';
 import { firstHalfShare, halfTimeModel } from './halfTime.js';
 import { marginDistribution } from './handicap.js';
-import { blendLambdas, fitMarketLambdas, marketTargets, statsLambdas } from './lambdas.js';
+import { blendLambdas, fitMarketLambdas, leagueAverageGoals, marketTargets, statsLambdas } from './lambdas.js';
 import { buildQuoteIndex, classifyMarket } from './marketCatalog.js';
 import { isAnomalous } from './matchRows.js';
 import { projectPlayers } from './players.js';
 import { scoreGrid } from './poisson.js';
+import { clamp } from '../utils/math.js';
 import { outcomeProbabilities } from './probabilities.js';
 import { evaluateMarkets } from './value.js';
 
@@ -34,13 +35,18 @@ function splitAnomalies(rows, teamName, threshold) {
   return { valid, excluded };
 }
 
-/** Bloques de partidos de un equipo, sin marcadores anómalos. */
-function teamBlocks(team, threshold) {
+/**
+ * Bloques de partidos de un equipo, sin marcadores anómalos ni partidos de peso 0
+ * (amistosos). Los amistosos se quitan aquí y no solo en los λ: si no, contaminan
+ * corners, tarjetas, porcentajes empíricos, el primer tiempo y el tamaño de muestra.
+ */
+function teamBlocks(team, threshold, leagues) {
   const blocks = { current: team.current, other: team.other, previous: team.previous };
+  const counts = (row) => competitionWeight(row.competition, leagues.weights, leagues.defaultWeight) > 0;
   const excluded = [];
   const clean = Object.fromEntries(
     Object.entries(blocks).map(([name, rows]) => {
-      const split = splitAnomalies(rows, team.name, threshold);
+      const split = splitAnomalies(rows.filter(counts), team.name, threshold);
       excluded.push(...split.excluded);
       return [name, split.valid];
     }),
@@ -77,6 +83,11 @@ function lambdaConfigFor(match, config) {
   return { ...config.lambda, homeAdvantage: entry.homeAdvantage, awayDisadvantage: entry.awayDisadvantage };
 }
 
+/** Fecha del partido más reciente de los datos: referencia para el peso por antigüedad. */
+function latestDate(rows) {
+  return rows.reduce((latest, row) => (row.date && (!latest || row.date > latest) ? row.date : latest), null);
+}
+
 function adjustedStatsLambdas({ match, homeBlocks, awayBlocks, absences, config }) {
   const { goalLines } = config.display;
   const adjustment = {
@@ -84,19 +95,29 @@ function adjustedStatsLambdas({ match, homeBlocks, awayBlocks, absences, config 
     currentCoefficient: leagueCoefficient(match.tournament, config.leagues.coefficients),
     schedule: config.schedule,
     leagues: config.leagues,
+    recency: config.recency,
+    referenceDate: latestDate([...homeBlocks.recent, ...awayBlocks.recent]),
   };
+  const average = config.lambda.multiplicative
+    ? leagueAverageGoals(match.standings, config.schedule.minTeams)
+    : null;
   const base = statsLambdas(
     adjustedSummaries(homeBlocks, true, adjustment, goalLines),
     adjustedSummaries(awayBlocks, false, adjustment, goalLines),
     lambdaConfigFor(match, config),
+    average,
   );
-  return { home: base.home * absences.home.factor, away: base.away * absences.away.factor };
+  const { min, max } = config.lambda.fit;
+  return {
+    home: clamp(base.home * absences.home.factor, min, max),
+    away: clamp(base.away * absences.away.factor, min, max),
+  };
 }
 
 function marketLambdasFor(markets, config) {
   const targets = marketTargets(markets);
   if (!targets) return null;
-  const fitted = fitMarketLambdas(targets, config.lambda.fit, config.poisson.maxGoals);
+  const fitted = fitMarketLambdas(targets, config.lambda.fit, config.poisson.maxGoals, config.poisson.dixonColesRho);
   return { home: fitted.home, away: fitted.away, targets };
 }
 
@@ -105,7 +126,7 @@ function marketLambdasFor(markets, config) {
 /** Grilla, probabilidades, diferencia de goles y primer tiempo para un par de λ. */
 function goalModel(lambdas, halfTimeSplit, config) {
   const { goalLines, topScores } = config.display;
-  const grid = scoreGrid(lambdas.home, lambdas.away, config.poisson.maxGoals);
+  const grid = scoreGrid(lambdas.home, lambdas.away, config.poisson.maxGoals, config.poisson.dixonColesRho);
   return {
     grid,
     probabilities: outcomeProbabilities(grid, { goalLines, topScores }),
@@ -119,25 +140,32 @@ function goalModel(lambdas, halfTimeSplit, config) {
 
 /** Qué estadística modela cada mercado de conteo y qué ajuste de Claude recibe. */
 const COUNT_STATS = [
-  { stat: 'corners', marketType: 'corners', extra: (context) => context?.cornersExtra ?? 0 },
-  { stat: 'cornersFirstHalf', marketType: null, extra: () => 0 },
-  { stat: 'yellows', marketType: 'cards', extra: (context) => context?.cardsExtra ?? 0 },
+  { stat: 'corners', marketType: 'corners', extra: (context) => context?.cornersExtra ?? 0, usesReferee: false },
+  { stat: 'cornersFirstHalf', marketType: null, extra: () => 0, usesReferee: false },
+  { stat: 'yellows', marketType: 'cards', extra: (context) => context?.cardsExtra ?? 0, usesReferee: true },
 ];
+
+function refereeFor(match) {
+  const stats = match.refereeStats;
+  return stats ? { perGame: stats.yellowsPerGame, games: stats.games } : null;
+}
 
 function linesFor(statConfig, markets, marketType) {
   const marketLines = markets.filter((market) => market.type === marketType).map((market) => market.line);
   return [...new Set([...statConfig.lines, ...marketLines])].sort((a, b) => a - b);
 }
 
-function countModels({ home, away, homeBlocks, awayBlocks, markets, context, config }) {
+function countModels({ match, home, away, homeBlocks, awayBlocks, markets, context, config }) {
   return Object.fromEntries(
-    COUNT_STATS.map(({ stat, marketType, extra }) => [
+    COUNT_STATS.map(({ stat, marketType, extra, usesReferee }) => [
       stat,
       countModel({
         stat,
         home: { venueRows: home.venueRows, recentRows: homeBlocks.recent },
         away: { venueRows: away.venueRows, recentRows: awayBlocks.recent },
         extra: extra(context),
+        markets: marketType ? markets.filter((market) => market.type === marketType) : [],
+        referee: usesReferee ? refereeFor(match) : null,
         lines: linesFor(config.counts[stat], markets, marketType),
         teamLines: config.counts[stat].teamLines,
         statConfig: config.counts[stat],
@@ -179,8 +207,8 @@ export function analyzeMatch(match, config = CONFIG, context = null) {
   const { goalLines } = config.display;
   const threshold = config.data.anomalousTotalGoals;
 
-  const homeBlocks = teamBlocks(match.home, threshold);
-  const awayBlocks = teamBlocks(match.away, threshold);
+  const homeBlocks = teamBlocks(match.home, threshold, config.leagues);
+  const awayBlocks = teamBlocks(match.away, threshold, config.leagues);
   const h2h = splitAnomalies(match.h2h, match.home.name, threshold);
 
   const home = teamSummaries(homeBlocks, true, goalLines);
@@ -213,7 +241,7 @@ export function analyzeMatch(match, config = CONFIG, context = null) {
     goalLines,
     config: config.empirical,
   });
-  const counts = countModels({ home, away, homeBlocks, awayBlocks, markets, context, config });
+  const counts = countModels({ match, home, away, homeBlocks, awayBlocks, markets, context, config });
 
   const recentSampleSizes = { home: home.recent?.n ?? 0, away: away.recent?.n ?? 0 };
   const picks = evaluateMarkets({
