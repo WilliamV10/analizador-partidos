@@ -135,11 +135,11 @@ Ajustes guardados ─► app/settings ─► config efectiva ──────�
 ```
 
 ```
-index.html          barra superior (ajustes, tema), panel de carga, panel de contexto, diálogo de ajustes
+index.html          esqueleto: barra superior, formulario de carga, contenedor de pantallas, barra inferior, diálogo de apuesta
 css/
-  tokens.css        colores con light-dark(): un solo valor por token para claro y oscuro
-  layout.css        estructura pensada primero para celular (390 px)
-  components.css    tarjetas, pestañas, tablas, badges, KPIs, mapa de calor, combinadas, diálogo
+  tokens.css        ÚNICO lugar con colores, tipografías, radios y espacios (light-dark(): oscuro y claro)
+  layout.css        reset, barra superior, barra inferior (celular), pantallas, lista lateral + detalle (escritorio)
+  components.css    componentes en BEM, en el mismo orden que ui/components.js
 js/
   main.js           punto de entrada: carga → importación → análisis → estado → interfaz
   themeInit.js      script clásico en <head>: aplica el tema guardado antes de pintar
@@ -180,23 +180,23 @@ js/
     analyzeMatch.js   orquestador
   ui/
     dom.js            h() seguro (nunca innerHTML)
-    components.js     card, dataTable, probabilityCell, tabs, kpi, switch, badges, escudo generado
+    components.js     piezas visuales: card, stat(s), chips, segmented, tabs, badges, barras, tablas, botones
+    icons.js          ÚNICA fuente de íconos SVG (icon('nombre') y <span data-icon> en el HTML)
+    navigation.js     lista de pantallas: alimenta la barra superior y la inferior
     formatters.js     %, cuotas, fechas
     store.js          estado + suscripción
     preferences.js    localStorage que nunca lanza
-    theme.js          selector de tema (auto → claro → oscuro)
-    loaderPanel.js    formulario de carga (se pliega al analizar)
-    contextPanel.js   "Copiar para Claude" y aplicar el bloque
-    settingsPanel.js  diálogo de ajustes
+    theme.js          tema (oscuro, claro o sistema), se elige en Ajustes
+    loaderPanel.js    eventos del formulario de carga y tarjeta "Último análisis"
     claudePrompt.js   texto compacto para Claude
     historyController.js  acciones del historial (registrar, liquidar, respaldo)
     betDialog.js      diálogo "Registrar apuesta"
     resultsScriptSource.js  script de consola de resultados (función autosuficiente, se pasa a texto)
     resultsScript.js  arma ese script con los ids pendientes
     download.js       descargar un texto como archivo
-    renderers/        results (vistas), daySummary, picksRanking, combosView, matchList, matchDetail (pestañas),
-                      matchHeader, alertsPanel, overview, valueTable, probabilityTables, extraMarkets,
-                      playersTable, teamStats, lineups
+    screens/          una pantalla por archivo: day, match, combo, context, settings, history
+                      shared.js (nombres, mejor pick, tarjeta de partido)
+      matchTabs/      pestañas del partido: summary, value, markets, counts, players, teams
 tests/              node --test (sin dependencias), fixtures sintéticos en tests/fixtures
 scripts/            scripts de consola de Sofascore que generan el JSON (v2 y v4)
 docs/CONTEXTO.md    este archivo
@@ -204,11 +204,15 @@ docs/CONTEXTO.md    este archivo
 
 ### Interfaz
 
-- **Vistas** (solo con varios partidos): Resumen del día · Partidos (lista + detalle) · Picks (ranking) · Combinadas.
-- **Historial** (📒 en la barra superior): pantalla aparte, disponible aunque no haya partidos cargados (ver §9 bis). `io/historyDb.js` guarda en IndexedDB.
+- **Pantallas** (`ui/navigation.js`): Día · Partido · Combinada · Contexto · Historial · Ajustes, más la de carga. En el celular van en la barra inferior; en escritorio (≥ 900 px) en la barra superior, y el partido se ve con la lista del día al costado. Sin partidos cargados, las de análisis muestran la carga.
+- **Cómo se dibuja:** `main.js` guarda todo en el store; cada cambio redibuja la pantalla activa con su función de `ui/screens/`. Ajustes solo se redibuja al entrar, al restaurar o al cambiar el tema (así los deslizadores no pierden el foco). El formulario de carga y los cuadros de texto de contexto y resultados son nodos fijos: no pierden lo pegado.
+- **Para agregar algo:** una pantalla = archivo en `ui/screens/` + entrada en `navigation.js` y `SCREEN_VIEWS` (main.js). Una pestaña del partido = archivo en `ui/screens/matchTabs/` + entrada en `MATCH_TABS` (match.js). Un color o medida = token en `tokens.css`. Un texto = `texts.js`.
+- **Combinada:** el usuario la arma (o parte de una sugerida) con reglas propias (cuota mínima, nivel, un pick por partido) y la copia como texto. `domain/combos.js` da los candidatos y el precio.
+- **Contexto:** se puede copiar solo los partidos "por revisar" (alerta de divergencia) y desactivar el ajuste de cada partido con su casilla.
+- **Historial:** pantalla aparte, disponible aunque no haya partidos cargados (ver §9 bis). `io/historyDb.js` guarda en IndexedDB.
 - **Última carga:** `io/sessionStore.js` guarda en IndexedDB (base `analizador-sesion`) los JSON tal como se subieron, el modo y el bloque de Claude. Al abrir la página se vuelven a analizar solos. «Limpiar» la borra y cargar otros datos la reemplaza.
-- **Pestañas del partido:** Resumen (KPIs, λ, mapa de marcadores, contexto) · Valor · Goles y 1X2 (resultado, goles, primer tiempo, hándicap) · Corners y tarjetas · Jugadores · Equipos · Alineaciones.
-- En el celular la lista de partidos es un carrusel horizontal y las tablas tienen scroll propio: la página nunca se desborda.
+- **Pestañas del partido:** Resumen (avisos, probabilidad final, goles esperados, marcadores, mejor pick, claves, contexto) · Valor (tarjetas Mi prob. vs Casa, filtros por mercado, "+" para registrar) · Mercados (resultado, goles, quién anota, hándicap, medio tiempo y primer gol) · Corners y tarjetas (esperado, línea de la casa, partidos contra la línea, todas las líneas) · Jugadores (1+ y 2+ a puerta, quién no empieza) · Equipos y H2H (bloques, últimos resultados, H2H, XI y bajas).
+- Responsive sin desbordes: probado a 360, 390, 768 y 1440 px. Las tablas largas tienen scroll propio.
 
 ### Reglas de código limpio (obligatorias)
 
@@ -333,7 +337,7 @@ Un pick por partido, EV > 0, nivel ≥ media, cuota ≥ 1.50 (excepciones en `co
 | `combos.*` | 2–4, ≥ media, ≥ 1.50, 2 candidatos, 3 mostradas | Combinadas |
 | `display.*` | líneas de goles y hándicap, 8 marcadores, mapa 6×6 | Lo que se muestra |
 
-**Panel de ajustes (⚙️):** `app/settings.js` define qué parámetros se pueden editar desde la página, con sus límites. Se guardan en `localStorage` (`analizador.settings`) solo los que difieren del valor por defecto; al leerlos se validan y limitan.
+**Pantalla de ajustes:** `app/settings.js` define qué parámetros se pueden editar desde la página, con sus límites. Se guardan en `localStorage` (`analizador.settings`) solo los que difieren del valor por defecto; al leerlos se validan y limitan.
 
 ---
 
@@ -424,6 +428,7 @@ La página es estática, así que todo se guarda **en el navegador** (IndexedDB,
 
 - [x] **Fase 1 — MVP:** carga, detección v2/v3/v4, Poisson, λ, mezcla empírica, 1X2, DC, DNB, Over/Under, ambos anotan, primer gol, valor, estadísticas por bloque, H2H, alineaciones, alertas.
 - [x] **Rediseño visual:** tokens con `light-dark()`, Inter, barra superior fija, panel de carga plegable, cabecera con escudos generados, KPIs, barras de probabilidad en tablas, mapa de calor de marcadores, pestañas, carrusel de partidos en el celular.
+- [x] **Rediseño 2 (propuesta "Analizador"):** tema oscuro con acento lima, Barlow Condensed + Inter, barra inferior en el celular y navegación superior con lista lateral en escritorio, una pantalla por sección (Día, Partido, Combinada, Contexto, Historial, Ajustes). El mapa de calor de marcadores y el ranking filtrable se reemplazaron por los 8 marcadores más probables y los mejores picks del día.
 - [x] **Fase 2 — Varios partidos:** resumen del día, ranking global con filtros (mercado, nivel, cuota mínima), combinadas automáticas, pestañas dentro del partido.
 - [x] **Fase 3 — Más mercados:** hándicap asiático, primer tiempo, corners (total, por equipo, 1er tiempo), tarjetas, jugadores (1+ y 2+ tiros y tiros a puerta).
 - [x] **Fase 4 — Inteligencia de datos:** calendario, bajas cuantificadas, coeficientes de liga, peso por competición, localía por liga, alertas `marketDivergence` y `keyPlayerOut`.

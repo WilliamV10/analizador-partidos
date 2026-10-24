@@ -45,9 +45,8 @@ export function bindBetDialog(dialog, { defaultStake }) {
       handlers = callbacks;
       replaceContent(
         pickBox,
-        h('span', { class: 'pick-cell__match' }, pick.matchTitle),
-        h('span', { class: 'pick-cell__market' }, pick.market),
-        h('span', { class: 'pick-cell__selection' }, pick.selection),
+        h('span', { class: 'note' }, `${pick.matchTitle} · ${pick.market}`),
+        h('strong', {}, pick.selection),
       );
       oddsInput.value = (pick.bet?.odds ?? pick.odds).toFixed(2);
       stakeInput.value = String(pick.bet?.stake ?? readPreference(LAST_STAKE_KEY, String(defaultStake)));

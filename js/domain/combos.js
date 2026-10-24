@@ -59,6 +59,18 @@ function enumerate(groups, { minSelections, maxSelections }) {
   return results;
 }
 
+/**
+ * Todos los picks que pueden entrar en una combinada con estas reglas, por EV.
+ * @param {import('./analyzeMatch.js').MatchAnalysis[]} analyses
+ * @param {typeof import('../config.js').CONFIG.combos} config  minOdds y minTier pueden venir de la interfaz
+ * @returns {ComboLeg[]}
+ */
+export function comboCandidates(analyses, config) {
+  return analyses
+    .flatMap((analysis) => analysis.picks.filter((pick) => isCandidate(pick, config)).map((pick) => ({ analysis, pick })))
+    .sort((a, b) => b.pick.ev - a.pick.ev);
+}
+
 /** @returns {Combo} */
 export function priceCombo(legs) {
   const product = (read) => legs.reduce((total, leg) => total * read(leg.pick), 1);

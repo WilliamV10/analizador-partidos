@@ -1,6 +1,7 @@
 /**
- * Punto de entrada: conecta carga -> importación -> análisis -> estado -> interfaz.
- * Los ajustes del usuario y el contexto de Claude vuelven a analizar los partidos ya cargados.
+ * Punto de entrada: conecta carga -> importación -> análisis -> estado -> pantallas.
+ * Todo cambio pasa por el store; cada cambio vuelve a dibujar la pantalla activa.
+ * Los ajustes y el contexto de Claude vuelven a analizar los partidos ya cargados.
  */
 import { analyzeMatches } from './app/analyzeMatches.js';
 import { createHistory } from './app/history.js';
@@ -8,9 +9,8 @@ import { importContext } from './app/importContext.js';
 import { importMatches } from './app/importMatches.js';
 import { applySettings, cleanOverrides } from './app/settings.js';
 import { CONFIG } from './config.js';
+import { findContext } from './domain/context.js';
 import { PERFORMANCE_MODES } from './domain/performance.js';
-import { ALL_MARKETS } from './domain/ranking.js';
-import { TIERS } from './domain/value.js';
 import { openHistoryStore } from './io/historyDb.js';
 import { ImportError } from './io/importError.js';
 import { readTextFiles } from './io/fileReader.js';
@@ -18,35 +18,54 @@ import { clearSession, loadSession, saveSession, saveSessionContext } from './io
 import { TEXTS } from './texts.js';
 import { bindBetDialog } from './ui/betDialog.js';
 import { buildClaudePrompt } from './ui/claudePrompt.js';
-import { bindContextPanel } from './ui/contextPanel.js';
+import { replaceContent } from './ui/dom.js';
+import { downloadText } from './ui/download.js';
 import { createHistoryController } from './ui/historyController.js';
+import { hydrateIcons } from './ui/icons.js';
 import { bindLoader } from './ui/loaderPanel.js';
+import { SCREENS, renderNavigation, resolveScreen } from './ui/navigation.js';
 import { readJsonPreference, removePreference, writeJsonPreference } from './ui/preferences.js';
-import { renderHistory } from './ui/renderers/historyView.js';
-import { DEFAULT_MATCH_TAB } from './ui/renderers/matchDetail.js';
-import { VIEWS, renderResults } from './ui/renderers/results.js';
-import { bindSettingsPanel } from './ui/settingsPanel.js';
+import { renderCombo } from './ui/screens/combo.js';
+import { CONTEXT_SCOPES, clearContextInput, contextKey, promptAnalyses, renderContext, showContextValidation } from './ui/screens/context.js';
+import { DAY_FILTERS, renderDay } from './ui/screens/day.js';
+import { renderHistory } from './ui/screens/history.js';
+import { DEFAULT_MATCH_TAB, renderMatch } from './ui/screens/match.js';
+import { PLAYER_SIDES } from './ui/screens/matchTabs/players.js';
+import { VALUE_MODES } from './ui/screens/matchTabs/value.js';
+import { renderSettings } from './ui/screens/settings.js';
+import { dayTitle, tournamentLine } from './ui/screens/shared.js';
 import { createStore } from './ui/store.js';
-import { bindThemeToggle } from './ui/theme.js';
+import { readTheme, setTheme } from './ui/theme.js';
 
-const NARROW_SCREEN = '(max-width: 899px)';
 const SETTINGS_STORAGE_KEY = 'analizador.settings';
+const TOAST_MS = 3200;
 
-const DEFAULT_PICK_FILTERS = Object.freeze({ market: ALL_MARKETS, minTier: TIERS.LOW, minOdds: 1 });
+const EMPTY_RESULTS = Object.freeze({
+  matches: [],
+  analyses: [],
+  failures: [],
+  selectedId: null,
+  contexts: [],
+  disabledContexts: [],
+  comboKeys: [],
+});
 
-const EMPTY_RESULTS = Object.freeze({ matches: [], analyses: [], failures: [], selectedId: null, contexts: [] });
-
-/** Pantallas: el análisis del día o el historial de picks y resultados. */
-const SCREENS = Object.freeze({ ANALYSIS: 'analysis', HISTORY: 'history' });
+const initialConfig = applySettings(CONFIG, readJsonPreference(SETTINGS_STORAGE_KEY, {}));
 
 const store = createStore({
   ...EMPTY_RESULTS,
-  screen: SCREENS.ANALYSIS,
-  view: VIEWS.DAY,
+  screen: SCREENS.DAY,
   matchTab: DEFAULT_MATCH_TAB,
-  onlyValue: true,
-  pickFilters: DEFAULT_PICK_FILTERS,
-  config: applySettings(CONFIG, readJsonPreference(SETTINGS_STORAGE_KEY, {})),
+  valueMode: VALUE_MODES.VALUE,
+  valueGroup: 'all',
+  playerSide: PLAYER_SIDES.BOTH,
+  teamSide: 'home',
+  dayFilter: DAY_FILTERS.ALL,
+  comboRules: { minOdds: initialConfig.combos.minOdds, minTier: initialConfig.combos.minTier, onePerMatch: true },
+  contextScope: CONTEXT_SCOPES.REVIEW,
+  config: initialConfig,
+  theme: readTheme(),
+  settingsRevision: 0,
   historyMode: PERFORMANCE_MODES.BETS,
   history: { records: [], persistent: true, ready: false, status: null },
   pendingCount: 0,
@@ -58,70 +77,54 @@ const historyController = createHistoryController({
   betDialog: bindBetDialog(document.getElementById('bet-dialog'), { defaultStake: CONFIG.history.defaultStake }),
 });
 
+/* ---------- Utilidades de interfaz ---------- */
+
+const toastElement = document.querySelector('[data-toast]');
+let toastTimer = null;
+
+function toast(message, kind = 'success') {
+  toastElement.textContent = message;
+  toastElement.dataset.kind = kind;
+  toastElement.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toastElement.hidden = true;
+  }, TOAST_MS);
+}
+
 function describeError(error) {
   if (error instanceof ImportError) return TEXTS.errors[error.code]?.(error.params) ?? error.code;
   return TEXTS.errors.unexpected(error?.message ?? String(error));
 }
 
-function scrollToDetailOnSmallScreens() {
-  if (!window.matchMedia(NARROW_SCREEN).matches) return;
-  document.getElementById('match-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+/** Copia al portapapeles; si el navegador no deja, descarga el texto como archivo. */
+async function copyText(text, successMessage) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(successMessage);
+  } catch {
+    downloadText('texto_analizador.txt', text, 'text/plain');
+    toast(TEXTS.app.copyFallback, 'error');
+  }
 }
 
+/* ---------- Análisis ---------- */
+
+const activeContexts = (contexts, disabled) => contexts.filter((context) => !disabled.includes(contextKey(context)));
+
 /** Analiza los partidos con la configuración y el contexto indicados y guarda el resultado. */
-function analyze({ matches, config, contexts, ...patch }) {
-  const { analyses, failures } = analyzeMatches(matches, config, contexts);
-  store.setState({ matches, config, contexts, analyses, failures, ...patch });
+function analyze({ matches, config, contexts, disabledContexts = [], ...patch }) {
+  const { analyses, failures } = analyzeMatches(matches, config, activeContexts(contexts, disabledContexts));
+  store.setState({ matches, config, contexts, disabledContexts, analyses, failures, ...patch });
   historyController.recordAnalyses(analyses);
   return analyses;
 }
 
 /** Vuelve a analizar lo cargado cambiando solo lo indicado (config o contexto). */
 function reanalyze(changes) {
-  const { matches, config, contexts } = store.getState();
-  return analyze({ matches, config, contexts, ...changes });
+  const { matches, config, contexts, disabledContexts } = store.getState();
+  return analyze({ matches, config, contexts, disabledContexts, ...changes });
 }
-
-const actions = {
-  selectView(view) {
-    store.setState({ view });
-  },
-  selectMatch(id) {
-    store.setState({ selectedId: id });
-    scrollToDetailOnSmallScreens();
-  },
-  openMatch(id) {
-    store.setState({ selectedId: id, view: VIEWS.MATCH });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  },
-  selectMatchTab(matchTab) {
-    store.setState({ matchTab });
-  },
-  toggleOnlyValue() {
-    store.setState({ onlyValue: !store.getState().onlyValue });
-  },
-  changePickFilters(patch) {
-    store.setState({ pickFilters: { ...store.getState().pickFilters, ...patch } });
-  },
-  betting: historyController.betting,
-};
-
-const historyActions = {
-  ...historyController.viewActions,
-  setHistoryMode(historyMode) {
-    store.setState({ historyMode });
-  },
-  closeHistory() {
-    store.setState({ screen: SCREENS.ANALYSIS });
-  },
-};
-
-const historyToggle = document.querySelector('[data-history-toggle]');
-historyToggle.addEventListener('click', () => {
-  const { screen } = store.getState();
-  store.setState({ screen: screen === SCREENS.HISTORY ? SCREENS.ANALYSIS : SCREENS.HISTORY });
-  window.scrollTo({ top: 0 });
-});
 
 /** Importa y analiza los JSON; devuelve los análisis (lanza si los datos no sirven). */
 function loadSources(sources, mode, contexts = []) {
@@ -130,13 +133,119 @@ function loadSources(sources, mode, contexts = []) {
     matches,
     config: store.getState().config,
     contexts,
+    disabledContexts: [],
+    comboKeys: [],
     selectedId: matches[0]?.id ?? null,
-    view: matches.length > 1 ? VIEWS.DAY : VIEWS.MATCH,
     matchTab: DEFAULT_MATCH_TAB,
+    dayFilter: DAY_FILTERS.ALL,
   });
 }
 
-const loader = bindLoader(document.getElementById('loader'), {
+/* ---------- Acciones ---------- */
+
+function navigate(screen) {
+  const state = store.getState();
+  const patch = { screen };
+  if (screen === SCREENS.MATCH && !state.selectedId) patch.selectedId = state.analyses[0]?.match.id ?? null;
+  store.setState(patch);
+}
+
+function copyForClaude() {
+  const { analyses, contextScope } = store.getState();
+  if (!analyses.length) {
+    toast(TEXTS.contextPanel.needMatches, 'error');
+    navigate(SCREENS.LOAD);
+    return;
+  }
+  const subset = promptAnalyses(analyses, contextScope);
+  copyText(buildClaudePrompt(subset), TEXTS.contextPanel.copied(subset.length));
+}
+
+function saveSetting(path, value) {
+  if (value === undefined) return;
+  const overrides = { ...readJsonPreference(SETTINGS_STORAGE_KEY, {}), [path]: value };
+  const saved = cleanOverrides(CONFIG, overrides);
+  writeJsonPreference(SETTINGS_STORAGE_KEY, saved);
+  reanalyze({ config: applySettings(CONFIG, saved) });
+  toast(TEXTS.settings.saved);
+}
+
+const actions = {
+  navigate,
+  copyText,
+  backToDay: () => navigate(store.getState().analyses.length > 1 ? SCREENS.DAY : SCREENS.LOAD),
+  openMatch(id) {
+    store.setState({ selectedId: id, screen: SCREENS.MATCH });
+  },
+  openCombo: () => navigate(SCREENS.COMBO),
+  selectMatchTab: (matchTab) => store.setState({ matchTab }),
+  setDayFilter: (dayFilter) => store.setState({ dayFilter }),
+  setValueMode: (valueMode) => store.setState({ valueMode }),
+  setValueGroup: (valueGroup) => store.setState({ valueGroup }),
+  setPlayerSide: (playerSide) => store.setState({ playerSide }),
+  setTeamSide: (teamSide) => store.setState({ teamSide }),
+  setComboKeys: (comboKeys) => store.setState({ comboKeys }),
+  setComboRules: (patch) => store.setState({ comboRules: { ...store.getState().comboRules, ...patch } }),
+  setContextScope: (contextScope) => store.setState({ contextScope }),
+  betting: historyController.betting,
+
+  previewContext(text) {
+    if (!text.trim()) {
+      showContextValidation('', 'info');
+      return;
+    }
+    try {
+      const contexts = importContext(text, TEXTS.context.title);
+      const matched = store.getState().analyses.filter((analysis) => findContext(contexts, analysis.match)).length;
+      showContextValidation(TEXTS.contextScreen.valid(matched, contexts.length), matched ? 'success' : 'error');
+    } catch (error) {
+      showContextValidation(describeError(error), 'error');
+    }
+  },
+  applyContext(text) {
+    try {
+      const contexts = importContext(text, TEXTS.context.title);
+      const analyses = reanalyze({ contexts, disabledContexts: [] });
+      const matched = analyses.filter((analysis) => analysis.context).length;
+      if (!matched) {
+        showContextValidation(TEXTS.contextPanel.noneMatched, 'error');
+        return;
+      }
+      saveSessionContext(text);
+      clearContextInput();
+      toast(TEXTS.contextPanel.applied(matched, analyses.length));
+    } catch (error) {
+      showContextValidation(describeError(error), 'error');
+    }
+  },
+  clearContext() {
+    reanalyze({ contexts: [], disabledContexts: [] });
+    saveSessionContext(null);
+    toast(TEXTS.contextPanel.cleared);
+  },
+  toggleContext(key, enabled) {
+    const disabled = store.getState().disabledContexts.filter((candidate) => candidate !== key);
+    reanalyze({ disabledContexts: enabled ? disabled : [...disabled, key] });
+  },
+
+  saveSetting,
+  resetSettings() {
+    removePreference(SETTINGS_STORAGE_KEY);
+    reanalyze({ config: CONFIG, settingsRevision: store.getState().settingsRevision + 1 });
+    toast(TEXTS.settings.reset);
+  },
+  setTheme(theme) {
+    setTheme(theme);
+    store.setState({ theme, settingsRevision: store.getState().settingsRevision + 1 });
+  },
+
+  ...historyController.viewActions,
+  setHistoryMode: (historyMode) => store.setState({ historyMode }),
+};
+
+/* ---------- Carga ---------- */
+
+const loader = bindLoader(document.getElementById('screen-load'), {
   async onAnalyze({ pastedText, files, mode }) {
     try {
       const sources = [
@@ -145,91 +254,21 @@ const loader = bindLoader(document.getElementById('loader'), {
       ];
       const analyses = loadSources(sources, mode);
       saveSession({ sources, mode, contextText: null, savedAt: Date.now() });
-      loader.showStatus(TEXTS.loader.loaded(analyses.length), 'success');
-      loader.collapse(TEXTS.loader.summary(analyses));
-      contextPanel.setSummary(null);
-      contextPanel.showStatus('');
+      loader.resetInputs();
+      loader.showStatus('');
+      toast(TEXTS.loader.loaded(analyses.length));
+      navigate(analyses.length > 1 ? SCREENS.DAY : SCREENS.MATCH);
     } catch (error) {
-      store.setState(EMPTY_RESULTS);
       loader.showStatus(describeError(error), 'error');
     }
   },
   onClear() {
-    store.setState(EMPTY_RESULTS);
+    store.setState({ ...EMPTY_RESULTS });
     clearSession();
-    contextPanel.setSummary(null);
-    contextPanel.showStatus('');
+    clearContextInput();
   },
+  onOpenLast: () => navigate(SCREENS.DAY),
 });
-
-const contextPanel = bindContextPanel(document.getElementById('context-panel'), {
-  getPrompt() {
-    const { analyses } = store.getState();
-    if (!analyses.length) {
-      contextPanel.showStatus(TEXTS.contextPanel.needMatches, 'error');
-      return null;
-    }
-    return buildClaudePrompt(analyses);
-  },
-  onApply(text) {
-    try {
-      const contexts = importContext(text, TEXTS.context.title);
-      const analyses = reanalyze({ contexts });
-      const matched = analyses.filter((analysis) => analysis.context).length;
-      if (!matched) {
-        contextPanel.showStatus(TEXTS.contextPanel.noneMatched, 'error');
-        return;
-      }
-      const message = TEXTS.contextPanel.applied(matched, analyses.length);
-      saveSessionContext(text);
-      contextPanel.showStatus(message, 'success');
-      contextPanel.setSummary(message);
-    } catch (error) {
-      contextPanel.showStatus(describeError(error), 'error');
-    }
-  },
-  onClear() {
-    reanalyze({ contexts: [] });
-    saveSessionContext(null);
-    contextPanel.showStatus(TEXTS.contextPanel.cleared, 'success');
-    contextPanel.setSummary(null);
-  },
-});
-
-bindSettingsPanel(document.getElementById('settings'), document.querySelector('[data-settings-open]'), {
-  defaults: CONFIG,
-  getConfig: () => store.getState().config,
-  onSave(overrides) {
-    const saved = cleanOverrides(CONFIG, overrides);
-    writeJsonPreference(SETTINGS_STORAGE_KEY, saved);
-    reanalyze({ config: applySettings(CONFIG, saved) });
-  },
-  onReset() {
-    removePreference(SETTINGS_STORAGE_KEY);
-    reanalyze({ config: CONFIG });
-  },
-});
-
-bindThemeToggle(document.querySelector('[data-theme-toggle]'));
-
-const sections = {
-  loader: document.getElementById('loader'),
-  results: document.getElementById('results'),
-  history: document.getElementById('history'),
-};
-
-store.subscribe((state) => {
-  const showHistory = state.screen === SCREENS.HISTORY;
-  historyToggle.setAttribute('aria-pressed', String(showHistory));
-  sections.loader.hidden = showHistory;
-  sections.results.hidden = showHistory;
-  sections.history.hidden = !showHistory;
-  contextPanel.setAvailable(!showHistory && state.analyses.length > 0);
-  if (showHistory) renderHistory(sections.history, state, historyActions);
-  else renderResults(sections.results, state, actions);
-});
-
-historyController.load();
 
 /** Si había datos cargados antes de cerrar la página, se vuelven a analizar (con su bloque de Claude). */
 async function restoreSession() {
@@ -238,16 +277,69 @@ async function restoreSession() {
   try {
     const contexts = session.contextText ? importContext(session.contextText, TEXTS.context.title) : [];
     const analyses = loadSources(session.sources, session.mode, contexts);
-    loader.showStatus(TEXTS.loader.restored(analyses.length, session.savedAt), 'success');
-    loader.collapse(TEXTS.loader.summary(analyses));
-    if (contexts.length) {
-      const matched = analyses.filter((analysis) => analysis.context).length;
-      contextPanel.setSummary(TEXTS.contextPanel.applied(matched, analyses.length));
-    }
+    toast(TEXTS.loader.restored(analyses.length, session.savedAt));
   } catch {
-    store.setState(EMPTY_RESULTS);
+    store.setState({ ...EMPTY_RESULTS });
     clearSession();
   }
 }
 
+/* ---------- Dibujo ---------- */
+
+/** Cómo se dibuja cada pantalla. `key`: si no cambia, la pantalla no se redibuja (no pierde el foco). */
+const SCREEN_VIEWS = {
+  [SCREENS.DAY]: { render: renderDay },
+  [SCREENS.MATCH]: { render: renderMatch },
+  [SCREENS.COMBO]: { render: renderCombo },
+  [SCREENS.CONTEXT]: { render: renderContext },
+  [SCREENS.HISTORY]: { render: renderHistory },
+  [SCREENS.SETTINGS]: { render: renderSettings, key: (state) => state.settingsRevision },
+};
+
+const roots = {
+  load: document.getElementById('screen-load'),
+  view: document.getElementById('screen-view'),
+  topnav: document.querySelector('[data-topnav]'),
+  bottomnav: document.querySelector('[data-bottomnav]'),
+};
+
+let drawn = { screen: null, key: undefined, selectedId: null };
+
+function lastSessionSummary(analyses) {
+  if (!analyses.length) return null;
+  return {
+    title: TEXTS.loader.lastTitle,
+    detail: [tournamentLine(analyses), dayTitle(analyses), TEXTS.contextScreen.matches(analyses.length)].filter(Boolean).join(' · '),
+  };
+}
+
+function render(state) {
+  const hasData = state.analyses.length > 0;
+  const screen = resolveScreen(state.screen, hasData);
+  renderNavigation(roots, { screen, hasData }, navigate);
+
+  const changedScreen = screen !== drawn.screen || (screen === SCREENS.MATCH && state.selectedId !== drawn.selectedId);
+  roots.load.hidden = screen !== SCREENS.LOAD;
+  roots.view.hidden = screen === SCREENS.LOAD;
+
+  if (screen === SCREENS.LOAD) {
+    loader.setLastSession(lastSessionSummary(state.analyses));
+  } else {
+    const view = SCREEN_VIEWS[screen];
+    const key = view.key?.(state);
+    if (changedScreen || key === undefined || key !== drawn.key) replaceContent(roots.view, view.render(state, actions));
+    drawn.key = key;
+  }
+  if (changedScreen) window.scrollTo({ top: 0 });
+  drawn = { ...drawn, screen, selectedId: state.selectedId };
+}
+
+store.subscribe(render);
+
+document.querySelectorAll('[data-nav]').forEach((element) => element.addEventListener('click', () => navigate(element.dataset.nav)));
+document.querySelectorAll('[data-copy-claude]').forEach((element) => element.addEventListener('click', copyForClaude));
+
+hydrateIcons();
+render(store.getState());
+historyController.load();
 restoreSession();
