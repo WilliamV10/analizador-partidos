@@ -225,8 +225,8 @@ docs/CONTEXTO.md    este archivo
 
 ### 6.1 Goles esperados por estadísticas (`lambdas.statsLambdas`)
 
-- `ataque(equipo) = promedio(goles a favor, xG a favor)` sobre el bloque **reciente** (temporada actual + otra competición).
-- `defensa(equipo) = promedio(goles en contra, xG en contra)`.
+- `ataque(equipo) = 0.35 × goles a favor + 0.65 × xG a favor` sobre el bloque **reciente** (temporada actual + otra competición). El xG pesa más porque tiene menos ruido (`lambda.xgWeight`).
+- `defensa(equipo) = 0.35 × goles en contra + 0.65 × xG en contra`.
 - `global_local = promedio(ataque(local), defensa(visita)) × 1.10` (la visita usa × 0.90; la Liga MX usa 1.15 / 0.86, ver `config/leagues.js`).
 - `split_local = promedio(ataque(local en casa), defensa(visita fuera))`. Solo se usa si ambos tienen ≥ 4 partidos.
 - `λ_stats = 0.65 × global + 0.35 × split`. Si no hay split, se usa el global.
@@ -252,7 +252,7 @@ Primer gol: `P(sin goles) = P(0-0)`, y `P(local primero) = (1 − P(0-0)) × λL
 Se aplica a los mercados de sí/no (ambos anotan, Over X.5, local anota, visita anota) y a las líneas de corners y tarjetas:
 
 - **Lo ocurrido realmente** = aciertos en los partidos del local **en casa**, más los del visitante **fuera**, más el H2H con peso 0.5 por partido (el H2H solo en goles).
-- `peso = min(0.5, n / (n + 12))`. El modelo vale como 12 partidos virtuales y la realidad pesa como máximo 50%.
+- `peso = min(0.3, n / (n + 30))`. El modelo vale como 30 partidos virtuales y la realidad pesa como máximo 30% (un porcentaje de 10 partidos tiene ±15% de error).
 - `final = (1 − peso) × modelo + peso × real`.
 
 ### 6.6 Valor (`value.js`)
@@ -272,6 +272,7 @@ Se aplica a los mercados de sí/no (ambos anotan, Over X.5, local anota, visita 
 
 - **Goles, ambos anotan, corners y tarjetas:** |modelo − real| ≤ 10 pts. Si no, el nivel se limita a **Media**.
 - **1X2, DC, DNB, primer gol, hándicap y 1X2 del primer tiempo:** |prob. por estadísticas − prob. justa de la casa| ≤ 12 pts. Si no, se limita a **Media-baja**.
+- **Ventaja sospechosa (todos los mercados):** si la prob. propia supera a la justa de la casa en más de 15 pts (`value.maxEdge`), el nivel se limita a **Media-baja**: casi siempre es un error o un dato que falta.
 
 ### 6.7 Mercados de la fase 3
 
@@ -279,7 +280,7 @@ Se aplica a los mercados de sí/no (ambos anotan, Over X.5, local anota, visita 
 |---|---|
 | **Hándicap asiático** (`handicap.js`) | Distribución de la diferencia de goles desde la grilla. Línea entera: devolución con diferencia exacta. Línea de cuarto (±0.25, ±0.75): promedio de las dos líneas vecinas (media apuesta en cada una); equivale a `win·(c−1) + halfWin·(c−1)/2 − halfLoss/2 − loss`. La línea del mercado es la del local; la visita usa la opuesta |
 | **Primer tiempo** (`halfTime.js`) | `λ_HT = λ × proporción`, con `proporción = (goles al descanso + 20 × 0.45) / (goles totales + 20)` sobre los partidos recientes de ambos equipos. 1X2 y Over 0.5/1.5/2.5 del primer tiempo |
-| **Corners** (`counts.js`) | `esperado_local = promedio(corners del local en casa, corners que concede la visita fuera)` (si hay < 4 partidos con dato, se usan todos los recientes). Total con **binomial negativa** (varianza = 1.3 × media) y mezcla empírica. También por equipo y del 1er tiempo (`1ST Corner kicks`). `cornersExtra` de Claude se suma al total |
+| **Corners** (`counts.js`) | `esperado_local = promedio(corners del local en casa, corners que concede la visita fuera)` (si hay < 4 partidos con dato, se usan todos los recientes). Total esperado = `0.5 × total implícito en la cuota de la casa + 0.5 × estadísticas` (`counts.marketWeight`; el implícito sale de la línea más pareja sin margen). Total con **binomial negativa** (varianza = 1.3 × media) y mezcla empírica. También por equipo y del 1er tiempo (`1ST Corner kicks`). `cornersExtra` de Claude se suma al total |
 | **Tarjetas** | Igual que corners con amarillas (dispersión 1.4). El JSON no trae árbitro ni rojas. `tarjetasExtra` de Claude se suma al total |
 | **Jugadores** (`players.js`) | `λ = ritmo/90 × min_esperados/90 × √(lo que concede el rival / media de liga)`; titular 80', suplente 25', duda 40', baja 0'. Sin alineación, minutos/partidos jugados. Con menos de 450' el ritmo se encoge hacia la media del puesto (encogimiento continuo). `P(1+) = 1 − e^(−λ)`, `P(2+) = 1 − e^(−λ)(1+λ)`, para tiros a puerta y tiros totales |
 
@@ -289,7 +290,7 @@ Solo afectan al λ por estadísticas; las tablas siguen mostrando lo ocurrido.
 
 - **Calendario:** `fuerza(rival) = puntos por partido del rival / media de la liga`, limitada a 0.5–1.8, con exponente 0.5. Goles y xG a favor se multiplican por ella y los en contra se dividen. Rivales que no están en la tabla: fuerza 1.
 - **Nivel de liga:** en el bloque "otra competición", el factor es `coef(otra) / coef(competición del partido)` (tabla en `config/leagues.js`; si falta uno de los dos, 1).
-- **Peso por competición:** amistosos 0, previas 0.6, copas 0.7, el resto 1. Se usa como peso en los promedios.
+- **Peso por competición:** amistosos 0, previas 0.6, copas 0.7, el resto 1. Se usa como peso en los promedios. Los partidos de peso 0 se quitan antes de todo (no cuentan en corners, tarjetas, porcentajes empíricos, primer tiempo ni muestra).
 
 ### 6.9 Bajas cuantificadas (`absences.js`)
 
@@ -306,21 +307,22 @@ Un pick por partido, EV > 0, nivel ≥ media, cuota ≥ 1.50 (excepciones en `co
 | Parámetro | Valor | Qué controla |
 |---|---|---|
 | `lambda.marketWeight` | 0.6 | Peso de las cuotas en λ final |
+| `lambda.xgWeight` | 0.65 | Peso del xG frente a los goles reales |
 | `lambda.homeAdvantage` / `awayDisadvantage` | 1.10 / 0.90 | Localía en el cálculo estadístico global |
 | `lambda.venueSplitWeight` | 0.35 | Peso de casa/fuera en λ estadístico |
 | `lambda.minVenueSample` | 4 | Partidos mínimos para usar casa/fuera |
 | `lambda.fallbackGoals` | 1.35 | λ sin datos |
 | `lambda.fit` | 0.2–4.5, pasos 0.05 / 0.01 | Búsqueda de λ de mercado |
 | `poisson.maxGoals` | 10 | Tamaño de la grilla |
-| `empirical.priorStrength` / `maxWeight` / `h2hWeight` | 12 / 0.5 / 0.5 | Mezcla con lo empírico |
+| `empirical.priorStrength` / `maxWeight` / `h2hWeight` | 30 / 0.3 / 0.5 | Mezcla con lo empírico |
 | `data.anomalousTotalGoals` / `smallSample` | 12 / 6 | Marcadores de penales, muestra chica |
-| `value.*` | 0.08 / 0.04 / 0.30 / 1.15 / 0.10 / 0.12 / 8 | Niveles de confianza (§6.6) |
+| `value.*` | 0.08 / 0.04 / 0.30 / 1.15 / 0.10 / 0.12 / 8 / 0.15 | Niveles de confianza (§6.6) |
 | `schedule.*` | activo, exp. 0.5, 0.5–1.8, ≥ 6 equipos | Ajuste por calendario |
 | `leagues.*` | `config/leagues.js` | Coeficientes, pesos por competición, localía por liga |
 | `absences.*` | activo, reemplazo 0.5, duda 0.5, ≥ 5%, mín. 0.7 | Bajas cuantificadas |
 | `alerts.divergenceGoals` / `divergenceProbability` | 0.6 / 0.15 | Alerta de divergencia |
 | `halfTime.*` | 0.45, 20 goles virtuales, líneas 0.5–2.5 | Primer tiempo |
-| `counts.*` | dispersión 1.3 / 1.3 / 1.4, líneas | Corners, corners 1T, amarillas |
+| `counts.*` | peso de cuotas 0.5, dispersión 1.3 / 1.3 / 1.4, líneas | Corners, corners 1T, amarillas |
 | `players.*` | 80'/25'/40', 450', medias por puesto, 4.5 TaP / 12.5 tiros | Proyección de jugadores |
 | `context.maxAdjustment` | 0.3 | Tope de cada ajuste de Claude |
 | `combos.*` | 2–4, ≥ media, ≥ 1.50, 2 candidatos, 3 mostradas | Combinadas |

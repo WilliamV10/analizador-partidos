@@ -416,6 +416,8 @@ export const TEXTS = Object.freeze({
     },
     fields: {
       'lambda.marketWeight': 'Peso de las cuotas en los goles esperados',
+      'lambda.xgWeight': 'Peso del xG frente a los goles reales',
+      'counts.marketWeight': 'Peso de las cuotas en corners y tarjetas',
       'lambda.homeAdvantage': 'Ventaja de local (multiplicador)',
       'lambda.awayDisadvantage': 'Desventaja de visita (multiplicador)',
       'lambda.venueSplitWeight': 'Peso de casa/fuera en las estadísticas',
@@ -426,6 +428,7 @@ export const TEXTS = Object.freeze({
       'value.minProbability': 'Probabilidad mínima para recomendar',
       'value.minOdds': 'Cuota mínima para recomendar',
       'value.minSampleHigh': 'Muestra mínima para confianza alta',
+      'value.maxEdge': 'Ventaja máxima creíble sobre la casa',
       'combos.minOdds': 'Cuota mínima por selección',
       'combos.maxSelections': 'Máximo de selecciones',
       'schedule.enabled': 'Ajustar por fuerza del rival (calendario)',

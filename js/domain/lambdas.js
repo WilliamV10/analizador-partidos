@@ -4,18 +4,24 @@
  *  - por mercado (los λ que reproducen el 1X2 y el Over/Under sin margen),
  *  - final (mezcla ponderada de ambos).
  */
-import { mean, range } from '../utils/math.js';
+import { mean, range, weightedMean } from '../utils/math.js';
 import { fairProbabilities } from './odds.js';
 import { closestTotalMarket, findMarket } from './marketCatalog.js';
 import { poissonVector } from './poisson.js';
 
 /** @typedef {import('./aggregates.js').TeamSummary} TeamSummary */
 
-const attackOf = (summary) => mean([summary?.avg.goalsFor, summary?.avg.xgFor]);
-const defenceOf = (summary) => mean([summary?.avg.goalsAgainst, summary?.avg.xgAgainst]);
+/** Mezcla goles reales y xG (el xG predice mejor: tiene menos ruido). Si falta uno, usa el otro. */
+const goalsAndXg = (goals, xg, xgWeight) =>
+  weightedMean([
+    { value: goals, weight: 1 - xgWeight },
+    { value: xg, weight: xgWeight },
+  ]);
+const attackOf = (summary, xgWeight) => goalsAndXg(summary?.avg.goalsFor, summary?.avg.xgFor, xgWeight);
+const defenceOf = (summary, xgWeight) => goalsAndXg(summary?.avg.goalsAgainst, summary?.avg.xgAgainst, xgWeight);
 
-function expectedGoals(attackSummary, defenceSummary) {
-  return mean([attackOf(attackSummary), defenceOf(defenceSummary)]);
+function expectedGoals(attackSummary, defenceSummary, xgWeight) {
+  return mean([attackOf(attackSummary, xgWeight), defenceOf(defenceSummary, xgWeight)]);
 }
 
 function hasSample(summary, minimum) {
@@ -40,14 +46,14 @@ export function statsLambdas(home, away, config) {
     hasSample(home.venue, config.minVenueSample) && hasSample(away.venue, config.minVenueSample);
   return {
     home: sideLambda({
-      overall: expectedGoals(home.recent, away.recent),
-      venue: useVenue ? expectedGoals(home.venue, away.venue) : null,
+      overall: expectedGoals(home.recent, away.recent, config.xgWeight),
+      venue: useVenue ? expectedGoals(home.venue, away.venue, config.xgWeight) : null,
       factor: config.homeAdvantage,
       config,
     }),
     away: sideLambda({
-      overall: expectedGoals(away.recent, home.recent),
-      venue: useVenue ? expectedGoals(away.venue, home.venue) : null,
+      overall: expectedGoals(away.recent, home.recent, config.xgWeight),
+      venue: useVenue ? expectedGoals(away.venue, home.venue, config.xgWeight) : null,
       factor: config.awayDisadvantage,
       config,
     }),

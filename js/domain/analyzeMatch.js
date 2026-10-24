@@ -3,7 +3,7 @@
  */
 import { CONFIG } from '../config.js';
 import { absenceImpact } from './absences.js';
-import { adjustRows, findLeagueEntry, leagueCoefficient, strengthLookup } from './adjustments.js';
+import { adjustRows, competitionWeight, findLeagueEntry, leagueCoefficient, strengthLookup } from './adjustments.js';
 import { summarize } from './aggregates.js';
 import { buildAlerts } from './alerts.js';
 import { applyContextToLambdas } from './context.js';
@@ -34,13 +34,18 @@ function splitAnomalies(rows, teamName, threshold) {
   return { valid, excluded };
 }
 
-/** Bloques de partidos de un equipo, sin marcadores anómalos. */
-function teamBlocks(team, threshold) {
+/**
+ * Bloques de partidos de un equipo, sin marcadores anómalos ni partidos de peso 0
+ * (amistosos). Los amistosos se quitan aquí y no solo en los λ: si no, contaminan
+ * corners, tarjetas, porcentajes empíricos, el primer tiempo y el tamaño de muestra.
+ */
+function teamBlocks(team, threshold, leagues) {
   const blocks = { current: team.current, other: team.other, previous: team.previous };
+  const counts = (row) => competitionWeight(row.competition, leagues.weights, leagues.defaultWeight) > 0;
   const excluded = [];
   const clean = Object.fromEntries(
     Object.entries(blocks).map(([name, rows]) => {
-      const split = splitAnomalies(rows, team.name, threshold);
+      const split = splitAnomalies(rows.filter(counts), team.name, threshold);
       excluded.push(...split.excluded);
       return [name, split.valid];
     }),
@@ -138,6 +143,7 @@ function countModels({ home, away, homeBlocks, awayBlocks, markets, context, con
         home: { venueRows: home.venueRows, recentRows: homeBlocks.recent },
         away: { venueRows: away.venueRows, recentRows: awayBlocks.recent },
         extra: extra(context),
+        markets: marketType ? markets.filter((market) => market.type === marketType) : [],
         lines: linesFor(config.counts[stat], markets, marketType),
         teamLines: config.counts[stat].teamLines,
         statConfig: config.counts[stat],
@@ -179,8 +185,8 @@ export function analyzeMatch(match, config = CONFIG, context = null) {
   const { goalLines } = config.display;
   const threshold = config.data.anomalousTotalGoals;
 
-  const homeBlocks = teamBlocks(match.home, threshold);
-  const awayBlocks = teamBlocks(match.away, threshold);
+  const homeBlocks = teamBlocks(match.home, threshold, config.leagues);
+  const awayBlocks = teamBlocks(match.away, threshold, config.leagues);
   const h2h = splitAnomalies(match.h2h, match.home.name, threshold);
 
   const home = teamSummaries(homeBlocks, true, goalLines);

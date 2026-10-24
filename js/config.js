@@ -23,6 +23,8 @@ export const CONFIG = deepFreeze({
   lambda: {
     /** Peso de las cuotas en los goles esperados finales (el resto son estadísticas). */
     marketWeight: 0.6,
+    /** Peso del xG frente a los goles reales al medir ataque y defensa (el xG tiene menos ruido). */
+    xgWeight: 0.65,
     /** Multiplicadores de localía aplicados al cálculo estadístico global. */
     homeAdvantage: 1.1,
     awayDisadvantage: 0.9,
@@ -39,10 +41,14 @@ export const CONFIG = deepFreeze({
     maxGoals: 10,
   },
   empirical: {
-    /** "Partidos virtuales" que se le dan al modelo al mezclarlo con lo ocurrido realmente. */
-    priorStrength: 12,
+    /**
+     * "Partidos virtuales" que se le dan al modelo al mezclarlo con lo ocurrido realmente.
+     * Un porcentaje de 10 partidos tiene ±15 % de error, así que lo empírico debe pesar poco
+     * (10 partidos reales → 25 % de peso).
+     */
+    priorStrength: 30,
     /** Peso máximo que puede tener lo ocurrido realmente frente al modelo. */
-    maxWeight: 0.5,
+    maxWeight: 0.3,
     /** Peso de cada partido H2H frente a uno de la temporada. */
     h2hWeight: 0.5,
   },
@@ -65,6 +71,8 @@ export const CONFIG = deepFreeze({
     maxStatsMarketGap: 0.12,
     /** Muestra mínima para confianza alta. */
     minSampleHigh: 8,
+    /** Ventaja máxima creíble sobre la casa (probabilidad propia − justa). Más que esto = nivel bajo. */
+    maxEdge: 0.15,
   },
   schedule: {
     /** Ajuste por calendario: corrige cada partido por la fuerza del rival en la tabla. */
@@ -109,6 +117,8 @@ export const CONFIG = deepFreeze({
   },
   counts: {
     maxCount: 40,
+    /** Peso del total que implica la cuota de corners/tarjetas (el resto son estadísticas). */
+    marketWeight: 0.5,
     /** Partidos mínimos en casa/fuera con el dato; si no, se usan todos los recientes. */
     minVenueSample: 4,
     /** dispersión = varianza / media (1 = Poisson). */

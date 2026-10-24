@@ -36,15 +36,18 @@ function baseTier(ev, sample, config) {
  *  - Sin valor si el EV no es positivo, la probabilidad es demasiado baja (cuotas largas)
  *    o la cuota es demasiado corta.
  *  - Si las fuentes no coinciden (gap > maxGap), el nivel se limita a `capWhenInconsistent`.
- * @param {{ ev: number, odds: number, probability: number, gap: number|null, sample: number, maxGap: number, capWhenInconsistent: string }} evidence
+ *  - Si el modelo se aleja demasiado de la casa (edge > maxEdge) el nivel se limita a bajo:
+ *    una diferencia así casi siempre es un error o un dato que falta, no valor real.
+ * @param {{ ev: number, odds: number, probability: number, edge?: number, gap: number|null, sample: number, maxGap: number, capWhenInconsistent: string }} evidence
  * @param {typeof import('../config.js').CONFIG.value} config
  */
-export function confidenceTier({ ev, odds, probability, gap, sample, maxGap, capWhenInconsistent }, config) {
+export function confidenceTier({ ev, odds, probability, edge = 0, gap, sample, maxGap, capWhenInconsistent }, config) {
   const recommendable = ev > 0 && probability >= config.minProbability && odds >= config.minOdds;
   if (!recommendable) return TIERS.NONE;
   const tier = baseTier(ev, sample, config);
   const consistent = gap === null || gap <= maxGap;
-  return consistent ? tier : capTier(tier, capWhenInconsistent);
+  const capped = consistent ? tier : capTier(tier, capWhenInconsistent);
+  return config.maxEdge !== undefined && edge > config.maxEdge ? capTier(capped, TIERS.LOW) : capped;
 }
 
 /**
@@ -99,18 +102,19 @@ function evaluateMarket(market, context) {
       const probability = winProbability(outcome);
       const ev = expectedValue(outcome, selection.odds);
       const evidence = evidenceFor(market, selection, fair[index], context);
+      const edge = probability - fair[index];
       return {
         market,
         key: selection.key,
         odds: selection.odds,
         probability,
         fairProbability: fair[index],
-        edge: probability - fair[index],
+        edge,
         ev,
         outcome,
         gap: evidence.gap,
         sample: evidence.sample,
-        tier: confidenceTier({ ev, odds: selection.odds, probability, ...evidence }, context.config),
+        tier: confidenceTier({ ev, odds: selection.odds, probability, edge, ...evidence }, context.config),
       };
     })
     .filter(Boolean);

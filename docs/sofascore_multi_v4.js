@@ -199,14 +199,19 @@ const PETICIONES_A_LA_VEZ = 6; // peticiones simultaneas al inicio (se ajusta so
         .filter(e => e.status?.type === 'finished').sort((a, b) => b.startTimestamp - a.startTimestamp);
       const actual = fin.filter(e => e.season?.id === season);
       const pasada = prevSeason ? fin.filter(e => e.season?.id === prevSeason.id).slice(0, PARTIDOS_TEMP_PASADA) : [];
-      // Liga local: el torneo (distinto al del partido) con mas partidos recientes del equipo
+      // Liga local: el torneo (distinto al del partido) con mas partidos recientes del equipo.
+      // Sin amistosos, y solo partidos de esta temporada (desde ~45 dias antes del primer
+      // partido de la competicion actual): si no, se cuela la liga del año pasado (ascendidos/descendidos).
       let ligaEvs = [], ligaNombre;
       if (PARTIDOS_LIGA > 0) {
+        const esAmistoso = e => /friendl/i.test(`${e.tournament?.uniqueTournament?.name || ''} ${e.tournament?.name || ''}`);
+        const inicio = (actual.length ? Math.min(...actual.map(e => e.startTimestamp)) : Date.now() / 1000 - 120 * 86400) - 45 * 86400;
+        const validos = fin.filter(e => e.startTimestamp >= inicio && !esAmistoso(e));
         const cuenta = {};
-        for (const e of fin) { const id = e.tournament?.uniqueTournament?.id; if (id && id !== ut) cuenta[id] = (cuenta[id] || 0) + 1; }
+        for (const e of validos) { const id = e.tournament?.uniqueTournament?.id; if (id && id !== ut) cuenta[id] = (cuenta[id] || 0) + 1; }
         const top = Object.entries(cuenta).sort((a, b) => b[1] - a[1])[0];
         if (top && top[1] >= 4) {
-          ligaEvs = fin.filter(e => e.tournament?.uniqueTournament?.id === +top[0]).slice(0, PARTIDOS_LIGA);
+          ligaEvs = validos.filter(e => e.tournament?.uniqueTournament?.id === +top[0]).slice(0, PARTIDOS_LIGA);
           ligaNombre = ligaEvs[0]?.tournament?.uniqueTournament?.name;
         }
       }
