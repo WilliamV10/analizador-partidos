@@ -50,7 +50,11 @@ export function exportBackup(records, now) {
 }
 
 const isRecord = (record) =>
-  record && typeof record.key === 'string' && typeof record.matchId === 'string' && record.market && typeof record.odds === 'number';
+  record &&
+  typeof record.key === 'string' &&
+  typeof record.matchId === 'string' &&
+  record.market &&
+  (typeof record.odds === 'number' || record.odds === null);
 
 /**
  * @param {string} text

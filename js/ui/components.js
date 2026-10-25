@@ -186,6 +186,7 @@ export function segmented(items, activeId, onSelect, label) {
           onClick: () => onSelect(item.id),
         },
         item.label,
+        item.hint === undefined || item.hint === null ? null : h('small', { class: 'segmented__hint' }, item.hint),
       ),
     ),
   );
@@ -326,13 +327,13 @@ export function compareBars(rows) {
  * Tabla con scroll horizontal propio (la página nunca se desborda en el celular).
  * @param {{ head: { label: string, numeric?: boolean }[], rows: ({ cells: unknown[], className?: string }|null)[], caption?: string }} config
  */
-export function dataTable({ head, rows, caption = null }) {
+export function dataTable({ head, rows, caption = null, variant = '' }) {
   return h(
     'div',
     { class: 'table-scroll' },
     h(
       'table',
-      { class: 'table' },
+      { class: `table${variant ? ` table--${variant}` : ''}` },
       caption ? h('caption', { class: 'visually-hidden' }, caption) : null,
       h('thead', {}, h('tr', {}, head.map((column) => h('th', { scope: 'col', class: column.numeric ? 'is-num' : null }, column.label)))),
       h(
@@ -347,6 +348,31 @@ export function dataTable({ head, rows, caption = null }) {
         ),
       ),
     ),
+  );
+}
+
+/* ---------- Paginado ---------- */
+
+/**
+ * "1–20 de 134" con botones anterior / siguiente. No dibuja nada si cabe en una página.
+ * @param {{ page: number, pages: number, total: number, pageSize: number, onPage: (page: number) => void }} options  page desde 0
+ */
+export function pagination({ page, pages, total, pageSize, onPage }) {
+  if (pages <= 1) return null;
+  const from = page * pageSize + 1;
+  const to = Math.min(total, (page + 1) * pageSize);
+  const step = (iconName, label, target, disabled) =>
+    h(
+      'button',
+      { type: 'button', class: 'icon-button icon-button--boxed', 'aria-label': label, title: label, disabled, onClick: () => onPage(target) },
+      icon(iconName, 20),
+    );
+  return h(
+    'nav',
+    { class: 'pagination', 'aria-label': TEXTS.pagination.label },
+    step('back', TEXTS.pagination.previous, page - 1, page === 0),
+    h('span', { class: 'pagination__info' }, TEXTS.pagination.range(from, to, total), h('span', { class: 'faint' }, TEXTS.pagination.page(page + 1, pages))),
+    step('chevron', TEXTS.pagination.next, page + 1, page >= pages - 1),
   );
 }
 

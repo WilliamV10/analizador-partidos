@@ -18,10 +18,10 @@ import { hasStarted } from './alerts.js';
  * @property {number} analyzedAt     marca de tiempo (ms)
  * @property {{ type: string, line: number|null, name: string }} market
  * @property {string} selection
- * @property {number} odds           cuota al analizar
+ * @property {number|null} odds      cuota al analizar (null = la casa no tenía ese mercado)
  * @property {number} probability    probabilidad propia (sin devolución)
- * @property {number} fairProbability
- * @property {number} ev
+ * @property {number|null} fairProbability
+ * @property {number|null} ev
  * @property {string} tier
  * @property {{ odds: number, stake: number, placedAt: number }|null} bet
  * @property {number|null} closingOdds
@@ -64,8 +64,54 @@ export function pickRecord(match, pick, now) {
 }
 
 /**
+ * Mercados del pronóstico del modelo (ver domain/forecasts.js). Se guardan siempre,
+ * aunque la casa no tenga cuota, para poder medir cuánto acierta el modelo.
+ * `probabilities(analysis)` da la probabilidad de cada selección.
+ */
+export const FORECAST_MARKETS = Object.freeze([
+  {
+    id: 'result',
+    market: { type: 'result', line: null, name: 'Full time' },
+    probabilities: ({ probabilities }) => probabilities.result,
+  },
+  {
+    id: 'btts',
+    market: { type: 'btts', line: null, name: 'Both teams to score' },
+    probabilities: ({ binary }) => ({ yes: binary.btts.final, no: 1 - binary.btts.final }),
+  },
+  {
+    id: 'goals25',
+    market: { type: 'total', line: 2.5, name: 'Match goals 2.5' },
+    probabilities: ({ binary, probabilities }) => {
+      const over = binary.overs[2.5]?.final ?? probabilities.overs[2.5];
+      return { over, under: 1 - over };
+    },
+  },
+]);
+
+/** Registro de una selección sin cuota de la casa (solo para medir el pronóstico). */
+function modelOnlyRecord(match, market, selection, probability, now) {
+  return pickRecord(match, { market, key: selection, odds: null, probability, fairProbability: null, ev: null, tier: 'none' }, now);
+}
+
+/**
+ * Registros sin cuota de los mercados del pronóstico que la casa no ofrece en este partido.
+ * @param {import('./analyzeMatch.js').MatchAnalysis} analysis
+ * @param {number} now
+ */
+function forecastFillers(analysis, now) {
+  const quoted = new Set(analysis.picks.map((pick) => recordKey(analysis.match.id, pick.market, pick.key)));
+  return FORECAST_MARKETS.flatMap(({ market, probabilities }) =>
+    Object.entries(probabilities(analysis))
+      .filter(([selection]) => !quoted.has(recordKey(analysis.match.id, market, selection)))
+      .map(([selection, probability]) => modelOnlyRecord(analysis.match, market, selection, probability, now)),
+  );
+}
+
+/**
  * Registros de las predicciones de los partidos que todavía no empezaron
  * (con el partido en juego las cuotas serían en vivo y ensuciarían la medición).
+ * Incluye todas las selecciones con cuota y, sin cuota, ganador, ambos anotan y más/menos de 2.5.
  * @param {import('./analyzeMatch.js').MatchAnalysis[]} analyses
  * @param {number} now
  * @returns {HistoryRecord[]}
@@ -73,7 +119,10 @@ export function pickRecord(match, pick, now) {
 export function predictionRecords(analyses, now) {
   return analyses
     .filter((analysis) => !hasStarted(analysis.match))
-    .flatMap(({ match, picks }) => picks.map((pick) => pickRecord(match, pick, now)));
+    .flatMap((analysis) => [
+      ...analysis.picks.map((pick) => pickRecord(analysis.match, pick, now)),
+      ...forecastFillers(analysis, now),
+    ]);
 }
 
 /**
