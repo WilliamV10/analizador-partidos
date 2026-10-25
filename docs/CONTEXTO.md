@@ -177,6 +177,8 @@ js/
     history.js        registros del historial (predicciones y apuestas), unión y pendientes
     settlement.js     liquidación con el resultado real y cuota de cierre
     performance.js    ganancia, ROI, acierto, CLV y calibración
+    forecasts.js      pronóstico del modelo (ganador, ambos anotan, 2.5) y su acierto
+    historyFilters.js filtros y paginado del historial
     alerts.js         códigos de alerta
     analyzeMatch.js   orquestador
   ui/
@@ -402,8 +404,9 @@ La página es estática, así que todo se guarda **en el navegador** (IndexedDB,
 
 **Registros** (`domain/history.js`): uno por selección analizada, con clave `partido|mercado|línea|selección`.
 
-- **Predicciones del modelo:** cada análisis guarda solas todas sus selecciones (probabilidad, cuota, EV, nivel), solo de partidos que **no han empezado** (con el partido en juego las cuotas serían en vivo). Volver a analizar actualiza lo pendiente y nunca pisa lo liquidado.
-- **Apuestas del usuario:** botón **+** junto a cada pick (pestaña Valor y ranking). Se guarda la cuota tomada y el monto en unidades; con ✓ se edita o se quita.
+- **Predicciones del modelo:** cada análisis guarda solas todas sus selecciones con cuota (probabilidad, cuota, EV, nivel), solo de partidos que **no han empezado** (con el partido en juego las cuotas serían en vivo). Volver a analizar actualiza lo pendiente y nunca pisa lo liquidado.
+- **Sin cuota:** ganador (1X2), ambos anotan Sí/No y más/menos de 2.5 se guardan siempre (`FORECAST_MARKETS`), aunque la casa no los ofrezca: van con `odds: null`, nivel `none`, y solo cuentan para el pronóstico.
+- **Apuestas del usuario:** botón **+** junto a cada pick (pestaña Valor). Se guarda la cuota tomada y el monto en unidades; con ✓ se edita o se quita.
 
 **Resultados** (flujo semiautomático):
 
@@ -419,6 +422,9 @@ La página es estática, así que todo se guarda **en el navegador** (IndexedDB,
 - Ganancia, ROI, acierto (sin contar devoluciones), por nivel de confianza y por mercado.
 - **CLV** = cuota tomada / cuota de cierre − 1. La cuota de cierre es la que devuelve Sofascore en el script de resultados; si no la trae para ese mercado, queda vacía.
 - **Calibración:** todas las predicciones liquidadas por rangos de 10%: predicho vs. ocurrido.
+- **Pronósticos** (`domain/forecasts.js`): en cada partido, la selección más probable de ganador, ambos anotan y más/menos 2.5, haya valor o no. Muestra el acierto total y por mercado contra el acierto que el modelo esperaba (promedio de sus probabilidades). Se calcula desde los registros, así que también sirve con historial viejo.
+
+**Pantalla** (`ui/screens/history.js`): tres modos (Apuestas · Picks · Pronósticos), filtros (`domain/historyFilters.js`: estado pendiente/ganada/perdida/devuelta, grupo de mercado, nivel mínimo y búsqueda por equipo o torneo) y lista paginada (`history.pageSize`, 20 por página), ordenada por fecha del partido. Los filtros de mercado, nivel y búsqueda cambian también los indicadores; el de estado solo la lista.
 
 **Respaldo:** Exportar/Importar un JSON (`"tipo": "historial-analizador"`) para pasar el historial a otro navegador o equipo. Al importar gana el registro con más información (liquidado > con apuesta > más nuevo).
 

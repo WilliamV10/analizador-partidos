@@ -10,6 +10,7 @@ import { importMatches } from './app/importMatches.js';
 import { applySettings, cleanOverrides } from './app/settings.js';
 import { CONFIG } from './config.js';
 import { findContext } from './domain/context.js';
+import { DEFAULT_HISTORY_FILTERS } from './domain/historyFilters.js';
 import { PERFORMANCE_MODES } from './domain/performance.js';
 import { openHistoryStore } from './io/historyDb.js';
 import { ImportError } from './io/importError.js';
@@ -71,6 +72,8 @@ const store = createStore({
   theme: readTheme(),
   settingsRevision: 0,
   historyMode: PERFORMANCE_MODES.BETS,
+  historyFilters: DEFAULT_HISTORY_FILTERS,
+  historyPage: 0,
   history: { records: [], persistent: true, ready: false, status: null },
   pendingCount: 0,
 });
@@ -249,7 +252,13 @@ const actions = {
   },
 
   ...historyController.viewActions,
-  setHistoryMode: (historyMode) => store.setState({ historyMode }),
+  setHistoryMode: (historyMode) => store.setState({ historyMode, historyPage: 0 }),
+  setHistoryFilters: (patch) => store.setState({ historyFilters: { ...store.getState().historyFilters, ...patch }, historyPage: 0 }),
+  clearHistoryFilters: () => store.setState({ historyFilters: DEFAULT_HISTORY_FILTERS, historyPage: 0 }),
+  setHistoryPage(historyPage) {
+    store.setState({ historyPage });
+    document.querySelector('.records')?.closest('.card')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  },
 };
 
 /* ---------- Carga ---------- */

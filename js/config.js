@@ -185,8 +185,8 @@ export const CONFIG = deepFreeze({
     maxScriptMatches: 40,
     /** Rangos de probabilidad en la tabla de calibración (10 = de 10 en 10 %). */
     calibrationBins: 10,
-    /** Registros que se muestran en la lista del historial. */
-    recentShown: 100,
+    /** Registros por página en la lista del historial. */
+    pageSize: 20,
     /** Monto por defecto al registrar una apuesta (unidades). */
     defaultStake: 1,
   },
