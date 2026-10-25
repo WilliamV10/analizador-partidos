@@ -193,6 +193,28 @@ export function segmented(items, activeId, onSelect, label) {
 }
 
 /**
+ * Desplegable con su etiqueta. Más limpio que una fila de botones cuando hay muchas opciones.
+ * @param {{ label: string, value: string, options: { id: string, label: string }[], onChange: (id: string) => void }} options
+ */
+export function selectField({ label, value, options, onChange }) {
+  return h(
+    'label',
+    { class: 'field' },
+    h('span', { class: 'field__label' }, label),
+    h(
+      'span',
+      { class: 'select' },
+      h(
+        'select',
+        { class: 'input select__control', onChange: (event) => onChange(event.target.value) },
+        options.map((option) => h('option', { value: option.id, selected: option.id === value }, option.label)),
+      ),
+      icon('chevron', 18),
+    ),
+  );
+}
+
+/**
  * Pestañas. El contenido lo dibuja quien llama; aquí solo va la barra.
  * @param {{ id: string, label: string, count?: number|null }[]} items
  */

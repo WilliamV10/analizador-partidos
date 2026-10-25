@@ -147,6 +147,9 @@ export const CONFIG = deepFreeze({
       /** Mezcla con el promedio del árbitro: peso = partidos / (partidos + priorGames), máximo maxWeight. */
       referee: { maxWeight: 0.35, priorGames: 40 },
     },
+    /** Remates totales y a puerta: más variables que una Poisson, sin cuota de la casa. */
+    shots: { dispersion: 1.5, lines: [20.5, 22.5, 24.5, 26.5], teamLines: [8.5, 10.5, 12.5, 14.5] },
+    shotsOnTarget: { dispersion: 1.3, lines: [6.5, 7.5, 8.5, 9.5], teamLines: [2.5, 3.5, 4.5, 5.5] },
   },
   players: {
     /** Minutos esperados según el estado en la alineación. */
@@ -204,6 +207,12 @@ export const CONFIG = deepFreeze({
       cards: 10,
       cardsHome: 7,
       cardsAway: 7,
+      shots: 40,
+      shotsHome: 25,
+      shotsAway: 25,
+      shotsOnTarget: 16,
+      shotsOnTargetHome: 10,
+      shotsOnTargetAway: 10,
     },
   },
   display: {

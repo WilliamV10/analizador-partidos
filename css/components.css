@@ -2290,3 +2290,38 @@
     margin-left: 0;
   }
 }
+
+/* ---------- Desplegable ---------- */
+
+.select {
+  position: relative;
+  display: block;
+}
+
+.select__control {
+  padding-right: 40px;
+  appearance: none;
+  -webkit-appearance: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.select > svg {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  color: var(--muted);
+  transform: translateY(-50%) rotate(90deg);
+  pointer-events: none;
+}
+
+.select__control option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: var(--space-3);
+}

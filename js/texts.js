@@ -206,17 +206,31 @@ export const TEXTS = Object.freeze({
     title: 'Explorar',
     intro:
       'Elige qué mirar y mueve el deslizador: probabilidad de exactamente N, N o más y N o menos. ' +
-      'En «Ambos» ves la probabilidad de que los dos equipos anoten.',
+      'En «Ambos anotan» ves la probabilidad de que los dos equipos anoten.',
     thisMatch: 'Este partido',
     allMatches: (count) => `Todos · ${count}`,
     scopeLabel: 'Un partido o todos',
     match: 'Partido',
-    groups: { goals: 'Goles', corners: 'Corners', cards: 'Tarjetas', btts: 'Ambos' },
+    groups: {
+      goals: 'Goles',
+      corners: 'Corners',
+      cards: 'Tarjetas',
+      shots: 'Remates',
+      shotsOnTarget: 'Remates a puerta',
+      btts: 'Ambos anotan',
+    },
     groupLabel: 'Estadística',
     sideLabel: 'De quién',
     total: 'Total',
     firstHalf: '1er tiempo',
-    units: { goals: ['gol', 'goles'], corners: ['corner', 'corners'], cards: ['tarjeta', 'tarjetas'], btts: ['', ''] },
+    units: {
+      goals: ['gol', 'goles'],
+      corners: ['corner', 'corners'],
+      cards: ['tarjeta', 'tarjetas'],
+      shots: ['remate', 'remates'],
+      shotsOnTarget: ['remate a puerta', 'remates a puerta'],
+      btts: ['', ''],
+    },
     bttsYes: 'Ambos anotan: Sí',
     bttsNo: 'Ambos anotan: No',
     bttsDetail: 'Ambos anotan · detalle',
@@ -248,6 +262,7 @@ export const TEXTS = Object.freeze({
     rowDetail: (mean, exactly, value) => `Esperado ${mean} · exactamente ${value}: ${exactly}`,
     method:
       'Goles: la grilla final del modelo. Corners y tarjetas: binomial negativa con el esperado final (ya mezclado con la cuota). ' +
+      'Remates: binomial negativa con lo que remata cada equipo y lo que concede el rival (no hay cuota de la casa). ' +
       'No incluye la mezcla con lo ocurrido realmente de las pestañas Valor y Mercados: puede diferir uno o dos puntos. ' +
       'Ambos anotan (Sí/No, cada equipo anota) sí usa la probabilidad final, la misma de esas pestañas.',
   },
@@ -572,6 +587,7 @@ export const TEXTS = Object.freeze({
       groupLabel: 'Mercado',
       tierLabel: 'Nivel mínimo',
       anyTier: 'Cualquier nivel',
+      tierAtLeast: (tier) => `${tier} o más`,
       status: { all: 'Todas', pending: 'Pendientes', won: 'Ganadas', lost: 'Perdidas', push: 'Devueltas' },
     },
     forecasts: {
