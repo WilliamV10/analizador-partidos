@@ -5,6 +5,7 @@
  *  - Goles: la grilla final del partido (Poisson con Dixon-Coles).
  *  - Goles del 1er tiempo: Poisson con los λ del primer tiempo.
  *  - Corners y tarjetas: binomial negativa con el esperado final (incluye la mezcla con la cuota).
+ *  - Remates y remates a puerta: binomial negativa con lo que remata cada equipo y concede el rival.
  * No incluye la mezcla con lo ocurrido realmente de las pestañas Valor y Mercados,
  * por eso puede diferir en uno o dos puntos de ellas.
  *  - Ambos anotan (bttsBreakdown): sí usa la probabilidad final de esas pestañas.
@@ -29,6 +30,12 @@ export const EXPLORER_STATS = Object.freeze([
   { id: 'cards', group: 'cards', source: 'yellows', side: 'total', market: 'cards' },
   { id: 'cardsHome', group: 'cards', source: 'yellows', side: 'home', market: null },
   { id: 'cardsAway', group: 'cards', source: 'yellows', side: 'away', market: null },
+  { id: 'shots', group: 'shots', source: 'shots', side: 'total', market: null },
+  { id: 'shotsHome', group: 'shots', source: 'shots', side: 'home', market: null },
+  { id: 'shotsAway', group: 'shots', source: 'shots', side: 'away', market: null },
+  { id: 'shotsOnTarget', group: 'shotsOnTarget', source: 'shotsOnTarget', side: 'total', market: null },
+  { id: 'shotsOnTargetHome', group: 'shotsOnTarget', source: 'shotsOnTarget', side: 'home', market: null },
+  { id: 'shotsOnTargetAway', group: 'shotsOnTarget', source: 'shotsOnTarget', side: 'away', market: null },
   { id: 'btts', group: 'btts', source: 'btts', side: 'total', market: 'btts' },
 ]);
 

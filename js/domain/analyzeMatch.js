@@ -143,6 +143,8 @@ const COUNT_STATS = [
   { stat: 'corners', marketType: 'corners', extra: (context) => context?.cornersExtra ?? 0, usesReferee: false },
   { stat: 'cornersFirstHalf', marketType: null, extra: () => 0, usesReferee: false },
   { stat: 'yellows', marketType: 'cards', extra: (context) => context?.cardsExtra ?? 0, usesReferee: true },
+  { stat: 'shots', marketType: null, extra: () => 0, usesReferee: false },
+  { stat: 'shotsOnTarget', marketType: null, extra: () => 0, usesReferee: false },
 ];
 
 function refereeFor(match) {

@@ -18,7 +18,6 @@ import {
   badge,
   button,
   card,
-  chips,
   dataTable,
   emptyState,
   iconButton,
@@ -26,6 +25,7 @@ import {
   pageHead,
   pagination,
   segmented,
+  selectField,
   signed,
   stats,
   tierBadge,
@@ -77,34 +77,37 @@ function filtersCard(allRecords, modeRecords, filters, mode, actions) {
   const counts = statusCounts(modeRecords);
   searchInput.value = filters.search;
   searchInput.onchange = () => actions.setHistoryFilters({ search: searchInput.value.trim() });
-  const groups = groupsOf(allRecords);
+  const texts = TEXTS.history.filters;
   return card(
-    { label: TEXTS.history.filters.title, actions: hasActiveFilters(filters) ? button({ label: TEXTS.history.filters.clear, variant: 'sm', onClick: actions.clearHistoryFilters }) : null },
-    h('div', { class: 'filters' }, [
-      h('label', { class: 'search' }, icon('search', 18), searchInput),
-      chips(
-        Object.values(STATUS_FILTERS).map((status) => ({ id: status, label: `${TEXTS.history.filters.status[status]} · ${counts[status]}` })),
-        filters.status,
-        (status) => actions.setHistoryFilters({ status }),
-        TEXTS.history.filters.statusLabel,
-      ),
-      groups.length > 1
-        ? chips(
-            [ALL_GROUPS, ...groups].map((group) => ({ id: group, label: group === ALL_GROUPS ? TEXTS.marketGroups.all : TEXTS.marketGroupsShort[group] ?? group })),
-            filters.group,
-            (group) => actions.setHistoryFilters({ group }),
-            TEXTS.history.filters.groupLabel,
-          )
-        : null,
+    { label: texts.title, actions: hasActiveFilters(filters) ? button({ label: texts.clear, variant: 'sm', onClick: actions.clearHistoryFilters }) : null },
+    h('label', { class: 'search' }, icon('search', 18), searchInput),
+    h(
+      'div',
+      { class: 'fields' },
+      selectField({
+        label: texts.statusLabel,
+        value: filters.status,
+        options: Object.values(STATUS_FILTERS).map((status) => ({ id: status, label: `${texts.status[status]} (${counts[status]})` })),
+        onChange: (status) => actions.setHistoryFilters({ status }),
+      }),
+      selectField({
+        label: texts.groupLabel,
+        value: filters.group,
+        options: [ALL_GROUPS, ...groupsOf(allRecords)].map((group) => ({
+          id: group,
+          label: group === ALL_GROUPS ? TEXTS.marketGroups.all : TEXTS.marketGroups[group] ?? group,
+        })),
+        onChange: (group) => actions.setHistoryFilters({ group }),
+      }),
       mode === HISTORY_MODES.FORECASTS
         ? null
-        : chips(
-            TIER_ORDER.map((tier) => ({ id: tier, label: tier === 'none' ? TEXTS.history.filters.anyTier : TEXTS.tiers[tier] })),
-            filters.minTier,
-            (minTier) => actions.setHistoryFilters({ minTier }),
-            TEXTS.history.filters.tierLabel,
-          ),
-    ]),
+        : selectField({
+            label: texts.tierLabel,
+            value: filters.minTier,
+            options: TIER_ORDER.map((tier) => ({ id: tier, label: tier === 'none' ? texts.anyTier : texts.tierAtLeast(TEXTS.tiers[tier]) })),
+            onChange: (minTier) => actions.setHistoryFilters({ minTier }),
+          }),
+    ),
   );
 }
 

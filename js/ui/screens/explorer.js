@@ -19,7 +19,7 @@ import {
   valueProbabilities,
 } from '../../domain/explorer.js';
 import { TEXTS } from '../../texts.js';
-import { card, chips, emptyState, iconButton, kvList, note, pageHead, segmented, stats } from '../components.js';
+import { card, chips, emptyState, iconButton, kvList, note, pageHead, segmented, selectField, stats } from '../components.js';
 import { h, replaceContent } from '../dom.js';
 import { EMPTY, decimal, odds, percent } from '../formatters.js';
 import { namesOf, tournamentLine } from './shared.js';
@@ -252,16 +252,12 @@ function sliderCard({ value, max, unit, onPreview, onCommit }) {
 }
 
 function matchSelect(analyses, selectedId, onSelect) {
-  return h(
-    'label',
-    { class: 'field' },
-    h('span', { class: 'eyebrow' }, TEXTS.explorer.match),
-    h(
-      'select',
-      { class: 'input', onChange: (event) => onSelect(event.target.value) },
-      analyses.map((analysis) => h('option', { value: analysis.match.id, selected: analysis.match.id === selectedId }, analysis.match.title)),
-    ),
-  );
+  return selectField({
+    label: TEXTS.explorer.match,
+    value: selectedId,
+    options: analyses.map((analysis) => ({ id: analysis.match.id, label: analysis.match.title })),
+    onChange: onSelect,
+  });
 }
 
 /**
@@ -314,12 +310,16 @@ export function renderExplorer(state, actions) {
       h(
         'div',
         { class: 'stack' },
-        scope === EXPLORER_SCOPES.MATCH && analyses.length > 1 ? matchSelect(analyses, analysis.match.id, actions.selectExplorerMatch) : null,
-        segmented(
-          EXPLORER_GROUPS.map((group) => ({ id: group, label: TEXTS.explorer.groups[group] })),
-          stat.group,
-          (group) => actions.setExplorerStat(EXPLORER_STATS.find((candidate) => candidate.group === group).id),
-          TEXTS.explorer.groupLabel,
+        h(
+          'div',
+          { class: 'stack stack--tight' },
+          scope === EXPLORER_SCOPES.MATCH && analyses.length > 1 ? matchSelect(analyses, analysis.match.id, actions.selectExplorerMatch) : null,
+          selectField({
+            label: TEXTS.explorer.groupLabel,
+            value: stat.group,
+            options: EXPLORER_GROUPS.map((group) => ({ id: group, label: TEXTS.explorer.groups[group] })),
+            onChange: (group) => actions.setExplorerStat(EXPLORER_STATS.find((candidate) => candidate.group === group).id),
+          }),
         ),
         statsOfGroup.length > 1
           ? chips(
