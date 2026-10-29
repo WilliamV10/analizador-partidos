@@ -1,10 +1,12 @@
 /**
  * Resumen del día: indicadores, filtros por hora, tarjetas de partido y mejores picks.
  */
+import { probableCandidates } from '../../domain/combos.js';
+import { probableConfig, probableMarketSelect } from './combo.js';
 import { rankPicks } from '../../domain/ranking.js';
 import { TIERS } from '../../domain/value.js';
 import { TEXTS } from '../../texts.js';
-import { button, chips, notice, pageHead, sectionLabel, signed, stats } from '../components.js';
+import { button, chips, notice, pageHead, sectionLabel, segmented, signed, stats } from '../components.js';
 import { h } from '../dom.js';
 import { odds, percent, signedPercent } from '../formatters.js';
 import { bestPick, dayTitle, kickoffTime, matchCard, pickName, tournamentLine, valuePicks } from './shared.js';
@@ -44,12 +46,43 @@ function indicators(analyses) {
   ]);
 }
 
-function bestPicksList(analyses, onOpenMatch) {
-  const ranked = rankPicks(analyses, { market: 'all', minTier: TIERS.LOW, minOdds: 1 }).slice(0, BEST_PICKS_SHOWN);
-  if (!ranked.length) return null;
+export const DAY_PICK_MODES = Object.freeze({ VALUE: 'value', PROBABLE: 'probable' });
+
+/** Lado derecho de cada fila: EV (por valor) o probabilidad (más probables). */
+function rankSide(pick, mode) {
+  if (mode === DAY_PICK_MODES.PROBABLE) {
+    return [h('strong', { class: 'tone-accent' }, percent(pick.probability)), h('span', { class: 'muted' }, `@ ${odds(pick.odds)}`)];
+  }
+  return [h('strong', {}, signed(pick.ev, signedPercent(pick.ev))), h('span', { class: 'muted' }, `@ ${odds(pick.odds)}`)];
+}
+
+function rankDetail(analysis, pick, mode) {
+  if (mode === DAY_PICK_MODES.PROBABLE) return `${analysis.match.title} · ${TEXTS.columns.ev} ${signedPercent(pick.ev)}`;
+  return `${analysis.match.title} · ${percent(pick.probability)} ${TEXTS.day.versus} ${percent(pick.fairProbability)}`;
+}
+
+function bestPicksList(state, actions) {
+  const { analyses, dayPicksMode: mode } = state;
+  const ranked = (
+    mode === DAY_PICK_MODES.PROBABLE
+      ? probableCandidates(analyses, probableConfig(state.config, state.probableRules, state.probableMarket))
+      : rankPicks(analyses, { market: 'all', minTier: TIERS.LOW, minOdds: 1 })
+  ).slice(0, BEST_PICKS_SHOWN);
+  const onOpenMatch = actions.openMatch;
   return [
     sectionLabel(TEXTS.day.bestPicks),
-    h(
+    segmented(
+      [
+        { id: DAY_PICK_MODES.VALUE, label: TEXTS.combos.modes.value },
+        { id: DAY_PICK_MODES.PROBABLE, label: TEXTS.combos.modes.probable },
+      ],
+      mode,
+      actions.setDayPicksMode,
+      TEXTS.combos.modeLabel,
+    ),
+    mode === DAY_PICK_MODES.PROBABLE ? probableMarketSelect(state.config, state.probableMarket, actions.setProbableMarket) : null,
+    ranked.length
+      ? h(
       'ol',
       { class: 'rank-list' },
       ranked.map(({ analysis, pick }, index) =>
@@ -64,18 +97,14 @@ function bestPicksList(analyses, onOpenMatch) {
               'span',
               { class: 'rank-item__text' },
               h('span', { class: 'rank-item__title' }, pickName(pick, analysis.match)),
-              h('span', { class: 'rank-item__sub' }, `${analysis.match.title} · ${percent(pick.probability)} ${TEXTS.day.versus} ${percent(pick.fairProbability)}`),
+              h('span', { class: 'rank-item__sub' }, rankDetail(analysis, pick, mode)),
             ),
-            h(
-              'span',
-              { class: 'rank-item__side' },
-              h('strong', {}, signed(pick.ev, signedPercent(pick.ev))),
-              h('span', { class: 'muted' }, `@ ${odds(pick.odds)}`),
-            ),
+            h('span', { class: 'rank-item__side' }, rankSide(pick, mode)),
           ),
         ),
       ),
-    ),
+    )
+      : h('p', { class: 'note' }, TEXTS.day.noPicksForMode),
   ];
 }
 
@@ -95,7 +124,7 @@ export function renderDay(state, actions) {
     shown.length
       ? h('div', { class: 'grid' }, shown.map((analysis) => matchCard(analysis, { onOpen: actions.openMatch })))
       : h('p', { class: 'note' }, TEXTS.day.noneForFilter),
-    bestPicksList(analyses, actions.openMatch),
-    button({ label: TEXTS.day.buildCombo, icon: 'combo', variant: 'soft lg block', onClick: actions.openCombo }),
+    bestPicksList(state, actions),
+    button({ label: TEXTS.day.buildCombo, icon: 'combo', variant: 'soft lg block', onClick: () => actions.openCombo(state.dayPicksMode) }),
   ];
 }

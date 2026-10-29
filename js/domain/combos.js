@@ -1,5 +1,9 @@
 /**
- * Combinadas automáticas: un pick por partido, solo selecciones con valor.
+ * Combinadas automáticas, con dos criterios:
+ *  - Valor: un pick por partido, solo selecciones con valor (EV positivo y nivel mínimo).
+ *  - Probabilidad: las selecciones más probables de los mercados populares (ganador,
+ *    doble oportunidad, ambos anotan, goles 1.5/2.5/3.5, hándicap, corners), haya valor
+ *    o no, con una cuota mínima para que no entren cuotas regaladas (ej. 1.04).
  *
  * Se asume independencia entre partidos. Con devoluciones (empate no apuesta),
  * cada selección paga `cuota` si gana, 1 si devuelve y 0 si pierde, así que:
@@ -69,6 +73,49 @@ export function comboCandidates(analyses, config) {
   return analyses
     .flatMap((analysis) => analysis.picks.filter((pick) => isCandidate(pick, config)).map((pick) => ({ analysis, pick })))
     .sort((a, b) => b.pick.ev - a.pick.ev);
+}
+
+/**
+ * ¿La selección entra en "más probables"? Mercado popular, cuota y probabilidad mínimas.
+ * @param {import('./value.js').ValuePick} pick
+ * @param {typeof import('../config.js').CONFIG.probable} config
+ */
+export function isProbableCandidate(pick, config) {
+  const { type, line } = pick.market;
+  if (!config.markets.includes(type)) return false;
+  if (type === 'total' && !config.totalLines.includes(line)) return false;
+  return pick.odds >= config.minOdds && pick.probability >= config.minProbability;
+}
+
+/**
+ * Selecciones de los mercados populares ordenadas por probabilidad (a igual probabilidad, por EV).
+ * @param {import('./analyzeMatch.js').MatchAnalysis[]} analyses
+ * @param {typeof import('../config.js').CONFIG.probable} config
+ * @returns {ComboLeg[]}
+ */
+export function probableCandidates(analyses, config) {
+  return analyses
+    .flatMap((analysis) => analysis.picks.filter((pick) => isProbableCandidate(pick, config)).map((pick) => ({ analysis, pick })))
+    .sort((a, b) => b.pick.probability - a.pick.probability || b.pick.ev - a.pick.ev);
+}
+
+/**
+ * Combinadas más probables: un pick por partido entre los más probables de cada uno,
+ * con cuota total mínima (si no, ganaría siempre la combinada más corta y sin sentido).
+ * @param {import('./analyzeMatch.js').MatchAnalysis[]} analyses
+ * @param {typeof import('../config.js').CONFIG.probable} config
+ * @param {{ minSelections: number, maxSelections: number, shown: number }} sizes
+ * @returns {Combo[]}
+ */
+export function buildProbableCombos(analyses, config, sizes) {
+  const groups = analyses
+    .map((analysis) => probableCandidates([analysis], config).slice(0, config.candidatesPerMatch))
+    .filter((legs) => legs.length);
+  return enumerate(groups, sizes)
+    .map(priceCombo)
+    .filter((combo) => combo.odds >= config.minComboOdds)
+    .sort((a, b) => b.probability - a.probability || b.ev - a.ev)
+    .slice(0, sizes.shown);
 }
 
 /** @returns {Combo} */
