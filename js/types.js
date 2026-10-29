@@ -111,6 +111,7 @@
  * @property {string|null} score
  * @property {string|null} referee
  * @property {RefereeStats|null} refereeStats
+ * @property {import('./domain/settlement.js').MatchResult|null} result  solo en partidos ya jugados (script v5 histórico)
  * @property {string|null} venue
  * @property {boolean} lineupsConfirmed
  * @property {Team} home

@@ -4,6 +4,7 @@
  */
 import { parseMarketLines } from '../domain/odds.js';
 import { parseScoreLine, toTeamRow } from '../domain/matchRows.js';
+import { toMatchResult } from './results.js';
 import { namesMatch } from '../utils/text.js';
 
 const POSITION_SUFFIX = /^(.*?)\s*\(([GDMF])\)$/;
@@ -150,6 +151,7 @@ export function buildMatch(raw, { source, standings, fallbackId }) {
     score: raw.marcador ?? null,
     referee: raw.arbitro ?? null,
     refereeStats: parseRefereeStats(raw.arbitroStats),
+    result: raw.resultado ? toMatchResult({ ...raw.resultado, id: raw.id }) : null,
     venue: raw.estadio ?? null,
     lineupsConfirmed: raw.alineacionesConfirmadas === true,
     home: buildTeam({

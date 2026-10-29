@@ -439,6 +439,9 @@ export const TEXTS = Object.freeze({
   alerts: {
     matchStarted: ({ status, score }) =>
       `El partido ya empezó (${status}${score && score !== '---' ? `, ${score}` : ''}): las cuotas pueden ser en vivo.`,
+    historical: ({ score }) =>
+      `Partido ya jugado${score ? ` (terminó ${score})` : ''}: prueba histórica, analizado solo con la información previa. ` +
+      'Sus selecciones se guardan liquidadas en el Historial (origen: histórico).',
     lineupsNotConfirmed: () => 'Alineaciones no confirmadas: vuelve a correr el script ~1 h antes del partido.',
     noLineups: () => 'No hay alineaciones en el JSON.',
     noResultOdds: () => 'No hay cuotas 1X2: el modelo usa solo estadísticas (menos fiable).',
@@ -608,6 +611,8 @@ export const TEXTS = Object.freeze({
       statusLabel: 'Estado',
       groupLabel: 'Mercado',
       tierLabel: 'Nivel mínimo',
+      originLabel: 'Origen',
+      origins: { all: 'Todos', live: 'En vivo', backtest: 'Histórico' },
       anyTier: 'Cualquier nivel',
       tierAtLeast: (tier) => `${tier} o más`,
       status: { all: 'Todas', pending: 'Pendientes', won: 'Ganadas', lost: 'Perdidas', push: 'Devueltas' },

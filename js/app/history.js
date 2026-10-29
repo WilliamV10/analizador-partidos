@@ -2,7 +2,7 @@
  * Caso de uso: historial de predicciones y apuestas.
  * Mantiene los registros en memoria y los guarda en el almacén (IndexedDB).
  */
-import { mergePredictions, pendingMatchIds, pickRecord, predictionRecords, preferRecord } from '../domain/history.js';
+import { backtestRecords, mergeBacktest, mergePredictions, pendingMatchIds, pickRecord, predictionRecords, preferRecord } from '../domain/history.js';
 import { applyResults } from '../domain/settlement.js';
 
 /**
@@ -33,7 +33,11 @@ export function createHistory(store, clock = () => Date.now()) {
 
     /** Guarda (o actualiza) las predicciones de los partidos analizados. */
     recordAnalyses(analyses) {
-      return save(mergePredictions(records, predictionRecords(analyses, clock())));
+      const now = clock();
+      return save([
+        ...mergePredictions(records, predictionRecords(analyses, now)),
+        ...mergeBacktest(records, backtestRecords(analyses, now)),
+      ]);
     },
 
     /**

@@ -36,11 +36,17 @@ Sofascore (navegador)                Página (navegador)                 Claude 
                                     10. Recalcula con el contexto
 ```
 
-**Scripts de Sofascore** (están en `scripts/`: `sofascore_multi_v4.js` y `sofascore_partido_v2.js`):
+**Scripts de Sofascore** (están en `scripts/`: `sofascore_multi_v5.js`, `sofascore_multi_v4.js` y `sofascore_partido_v2.js`):
 
 - **v2:** un partido. Imprime el JSON en consola (`copy(JSON.stringify(window._sofa))`).
 - **v4:** varios partidos. Se filtran por `FECHA`, `TORNEO`, `TORNEO_ID`, `HORA` o `IDS` y se descarga un archivo.
 - El v4 va dentro de un bloque `{ }`, así que se puede pegar varias veces sin recargar. Hace varias peticiones a la vez (`PETICIONES_A_LA_VEZ`), no repite URLs y, si Sofascore responde 429/403, baja el ritmo, espera y reintenta solo.
+- **v5:** muchos partidos de **varias competiciones** (`TORNEOS`: nombres o ids). Dos modos:
+  - `proximos`: partidos sin jugar de hoy y los próximos `DIAS` días.
+  - `historico`: partidos ya jugados de los últimos `DIAS` días, con un bloque `resultado` (mismo formato que el script de resultados). Para cada partido solo usa información **anterior**: partidos previos de cada equipo, H2H previo y las estadísticas en vivo vacías. La app los analiza y guarda sus selecciones **ya liquidadas** con origen "histórico" (`backtestRecords`), así se mide el modelo sin esperar. Si el partido ya tenía una predicción en vivo pendiente, se conserva y solo se liquida (`mergeBacktest`).
+  - Fugas conocidas del modo histórico: la tabla de posiciones es la actual (no la de ese día) y las cuotas son las últimas antes del partido (cierre), que son más difíciles de batir que las que se ven horas antes.
+  - Cuidado con Sofascore: límite de peticiones simultáneas y de ritmo (`PETICIONES_POR_SEGUNDO`, 6 por defecto), pausas crecientes ante 429/403 y, si sigue bloqueando, se detiene y descarga lo que alcanzó (`incompleto`, `faltan`). Procesa `PARTIDOS_A_LA_VEZ` partidos en paralelo y nunca repite una URL (los equipos de una misma liga comparten historial).
+  - Salida: `{ version: 5, modo, filtros, incompleto, faltan, posiciones, partidos }`; la app lo lee igual que el v4.
 - El endpoint `scheduled-events` devuelve 404. Por eso el script busca los partidos desde los endpoints del torneo.
 
 ---
@@ -201,7 +207,7 @@ js/
                       shared.js (nombres, mejor pick, tarjeta de partido)
       matchTabs/      pestañas del partido: summary, value, markets, counts, players, teams
 tests/              node --test (sin dependencias), fixtures sintéticos en tests/fixtures
-scripts/            scripts de consola de Sofascore que generan el JSON (v2 y v4)
+scripts/            scripts de consola de Sofascore que generan el JSON (v2, v4 y v5)
 docs/CONTEXTO.md    este archivo
 ```
 
@@ -428,7 +434,9 @@ La página es estática, así que todo se guarda **en el navegador** (IndexedDB,
 - **Calibración:** todas las predicciones liquidadas por rangos de 10%: predicho vs. ocurrido.
 - **Pronósticos** (`domain/forecasts.js`): en cada partido, la selección más probable de ganador, ambos anotan y más/menos 2.5, haya valor o no. Muestra el acierto total y por mercado contra el acierto que el modelo esperaba (promedio de sus probabilidades). Se calcula desde los registros, así que también sirve con historial viejo.
 
-**Pantalla** (`ui/screens/history.js`): tres modos (Apuestas · Picks · Pronósticos), filtros en desplegables (`domain/historyFilters.js`: estado pendiente/ganada/perdida/devuelta con su conteo, grupo de mercado, nivel mínimo) más búsqueda por equipo o torneo y lista paginada (`history.pageSize`, 20 por página), ordenada por fecha del partido. Los filtros de mercado, nivel y búsqueda cambian también los indicadores; el de estado solo la lista.
+**Origen:** cada registro es "en vivo" (analizado antes del partido) o "histórico" (script v5 en modo histórico, con la etiqueta *Histórico* en la lista).
+
+**Pantalla** (`ui/screens/history.js`): tres modos (Apuestas · Picks · Pronósticos), filtros en desplegables (`domain/historyFilters.js`: estado pendiente/ganada/perdida/devuelta con su conteo, grupo de mercado, origen en vivo/histórico, nivel mínimo) más búsqueda por equipo o torneo y lista paginada (`history.pageSize`, 20 por página), ordenada por fecha del partido. Los filtros de mercado, nivel y búsqueda cambian también los indicadores; el de estado solo la lista.
 
 **Respaldo:** Exportar/Importar un JSON (`"tipo": "historial-analizador"`) para pasar el historial a otro navegador o equipo. Al importar gana el registro con más información (liquidado > con apuesta > más nuevo).
 

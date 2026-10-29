@@ -5,6 +5,18 @@
  * Funciones puras: reciben registros y devuelven registros nuevos.
  */
 import { hasStarted } from './alerts.js';
+import { applyResults } from './settlement.js';
+
+/**
+ * Origen de un registro: en vivo (analizado antes del partido) o histórico (partido ya
+ * jugado, analizado solo con la información previa y liquidado al importar).
+ * Los registros viejos no tienen el campo: cuentan como en vivo.
+ */
+export const RECORD_ORIGINS = Object.freeze({ LIVE: 'live', BACKTEST: 'backtest' });
+
+export function recordOrigin(record) {
+  return record.origin === RECORD_ORIGINS.BACKTEST ? RECORD_ORIGINS.BACKTEST : RECORD_ORIGINS.LIVE;
+}
 
 /**
  * @typedef {Object} HistoryRecord
@@ -26,6 +38,7 @@ import { hasStarted } from './alerts.js';
  * @property {{ odds: number, stake: number, placedAt: number }|null} bet
  * @property {number|null} closingOdds
  * @property {{ status: string, score: string, settledAt: number }|null} settlement
+ * @property {'live'|'backtest'} [origin]  ver RECORD_ORIGINS (sin campo = live)
  */
 
 /** Clave estable de una selección de un partido. */
@@ -40,8 +53,9 @@ export function recordKey(matchId, market, selection) {
  * @param {number} now
  * @returns {HistoryRecord}
  */
-export function pickRecord(match, pick, now) {
+export function pickRecord(match, pick, now, origin = RECORD_ORIGINS.LIVE) {
   return {
+    origin,
     key: recordKey(match.id, pick.market, pick.key),
     matchId: match.id,
     matchTitle: match.title,
@@ -90,8 +104,8 @@ export const FORECAST_MARKETS = Object.freeze([
 ]);
 
 /** Registro de una selección sin cuota de la casa (solo para medir el pronóstico). */
-function modelOnlyRecord(match, market, selection, probability, now) {
-  return pickRecord(match, { market, key: selection, odds: null, probability, fairProbability: null, ev: null, tier: 'none' }, now);
+function modelOnlyRecord(match, market, selection, probability, now, origin) {
+  return pickRecord(match, { market, key: selection, odds: null, probability, fairProbability: null, ev: null, tier: 'none' }, now, origin);
 }
 
 /**
@@ -99,12 +113,12 @@ function modelOnlyRecord(match, market, selection, probability, now) {
  * @param {import('./analyzeMatch.js').MatchAnalysis} analysis
  * @param {number} now
  */
-function forecastFillers(analysis, now) {
+function forecastFillers(analysis, now, origin) {
   const quoted = new Set(analysis.picks.map((pick) => recordKey(analysis.match.id, pick.market, pick.key)));
   return FORECAST_MARKETS.flatMap(({ market, probabilities }) =>
     Object.entries(probabilities(analysis))
       .filter(([selection]) => !quoted.has(recordKey(analysis.match.id, market, selection)))
-      .map(([selection, probability]) => modelOnlyRecord(analysis.match, market, selection, probability, now)),
+      .map(([selection, probability]) => modelOnlyRecord(analysis.match, market, selection, probability, now, origin)),
   );
 }
 
@@ -117,12 +131,29 @@ function forecastFillers(analysis, now) {
  * @returns {HistoryRecord[]}
  */
 export function predictionRecords(analyses, now) {
+  return analyses.filter((analysis) => !hasStarted(analysis.match)).flatMap((analysis) => recordsOf(analysis, now, RECORD_ORIGINS.LIVE));
+}
+
+/** Todas las selecciones de un análisis como registros (con cuota y, sin cuota, las del pronóstico). */
+function recordsOf(analysis, now, origin) {
+  return [
+    ...analysis.picks.map((pick) => pickRecord(analysis.match, pick, now, origin)),
+    ...forecastFillers(analysis, now, origin),
+  ];
+}
+
+/**
+ * Prueba histórica: partidos ya jugados que traen su resultado (script v5, modo histórico).
+ * Se guardan todas sus selecciones ya liquidadas; las que no se pueden liquidar (falta el
+ * dato, ej. corners) se descartan para no quedar pendientes para siempre.
+ * @param {import('./analyzeMatch.js').MatchAnalysis[]} analyses
+ * @param {number} now
+ * @returns {HistoryRecord[]}
+ */
+export function backtestRecords(analyses, now) {
   return analyses
-    .filter((analysis) => !hasStarted(analysis.match))
-    .flatMap((analysis) => [
-      ...analysis.picks.map((pick) => pickRecord(analysis.match, pick, now)),
-      ...forecastFillers(analysis, now),
-    ]);
+    .filter((analysis) => analysis.match.result?.finished)
+    .flatMap((analysis) => applyResults(recordsOf(analysis, now, RECORD_ORIGINS.BACKTEST), [analysis.match.result], now));
 }
 
 /**
@@ -138,6 +169,29 @@ export function mergePredictions(existing, incoming) {
     .map((record) => {
       const previous = existing.get(record.key);
       return previous ? { ...record, bet: previous.bet, closingOdds: previous.closingOdds } : record;
+    });
+}
+
+/**
+ * Une registros de una prueba histórica (ya liquidados) con los guardados:
+ *  - si ya existe y está liquidado, no se toca;
+ *  - si existe una predicción en vivo pendiente del mismo partido, se conserva (con sus
+ *    cuotas y probabilidades de antes del partido) y solo se liquida con el resultado;
+ *  - si no, entra el registro histórico (conservando una apuesta previa, si la hubiera).
+ * @param {Map<string, HistoryRecord>} existing
+ * @param {HistoryRecord[]} incoming  salida de backtestRecords
+ * @returns {HistoryRecord[]}  registros que cambiaron (para guardar)
+ */
+export function mergeBacktest(existing, incoming) {
+  return incoming
+    .filter((record) => !existing.get(record.key)?.settlement)
+    .map((record) => {
+      const previous = existing.get(record.key);
+      if (!previous) return record;
+      if (recordOrigin(previous) === RECORD_ORIGINS.LIVE) {
+        return { ...previous, settlement: record.settlement, closingOdds: previous.closingOdds ?? record.closingOdds };
+      }
+      return { ...record, bet: previous.bet };
     });
 }
 

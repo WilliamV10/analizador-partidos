@@ -8,6 +8,7 @@ export const ALERT_LEVELS = Object.freeze({ WARNING: 'warning', INFO: 'info' });
 
 export const ALERT_CODES = Object.freeze({
   MATCH_STARTED: 'matchStarted',
+  HISTORICAL: 'historical',
   LINEUPS_NOT_CONFIRMED: 'lineupsNotConfirmed',
   NO_LINEUPS: 'noLineups',
   NO_RESULT_ODDS: 'noResultOdds',
@@ -80,7 +81,10 @@ function keyPlayerAlerts(teamName, projections, lineupsConfirmed) {
 export function buildAlerts({ match, recentSampleSizes, excludedRows, lambdas, statsProbabilities, players }, config) {
   const hasMarketLambdas = Boolean(lambdas.market);
   const alerts = [];
-  if (hasStarted(match)) {
+  if (match.result?.finished) {
+    const { score } = match.result;
+    alerts.push(alert(ALERT_CODES.HISTORICAL, ALERT_LEVELS.INFO, { score: score ? `${score.home}-${score.away}` : null }));
+  } else if (hasStarted(match)) {
     alerts.push(alert(ALERT_CODES.MATCH_STARTED, ALERT_LEVELS.WARNING, { status: match.status, score: match.score }));
   }
   if (!hasStarters(match.home) && !hasStarters(match.away)) {
