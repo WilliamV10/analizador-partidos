@@ -26,9 +26,9 @@ import { hydrateIcons, icon } from './ui/icons.js';
 import { bindLoader } from './ui/loaderPanel.js';
 import { SCREENS, renderNavigation, resolveScreen } from './ui/navigation.js';
 import { readJsonPreference, removePreference, writeJsonPreference } from './ui/preferences.js';
-import { renderCombo } from './ui/screens/combo.js';
+import { COMBO_MODES, renderCombo } from './ui/screens/combo.js';
 import { CONTEXT_SCOPES, clearContextInput, contextKey, promptAnalyses, renderContext, showContextValidation } from './ui/screens/context.js';
-import { DAY_FILTERS, renderDay } from './ui/screens/day.js';
+import { DAY_FILTERS, DAY_PICK_MODES, renderDay } from './ui/screens/day.js';
 import { EXPLORER_SCOPES, renderExplorer } from './ui/screens/explorer.js';
 import { renderHistory } from './ui/screens/history.js';
 import { DEFAULT_MATCH_TAB, renderMatch } from './ui/screens/match.js';
@@ -64,6 +64,10 @@ const store = createStore({
   teamSide: 'home',
   dayFilter: DAY_FILTERS.ALL,
   comboRules: { minOdds: initialConfig.combos.minOdds, minTier: initialConfig.combos.minTier, onePerMatch: true },
+  comboMode: COMBO_MODES.VALUE,
+  probableRules: { minOdds: initialConfig.probable.minOdds, minProbability: initialConfig.probable.minProbability, onePerMatch: true },
+  dayPicksMode: DAY_PICK_MODES.VALUE,
+  probableMarket: 'all',
   contextScope: CONTEXT_SCOPES.REVIEW,
   explorerStat: 'goals',
   explorerScope: EXPLORER_SCOPES.MATCH,
@@ -184,7 +188,13 @@ const actions = {
   openMatch(id) {
     store.setState({ selectedId: id, screen: SCREENS.MATCH });
   },
-  openCombo: () => navigate(SCREENS.COMBO),
+  openCombo(mode = COMBO_MODES.VALUE) {
+    store.setState({ comboMode: mode, screen: SCREENS.COMBO });
+  },
+  setComboMode: (comboMode) => store.setState({ comboMode }),
+  setProbableRules: (patch) => store.setState({ probableRules: { ...store.getState().probableRules, ...patch } }),
+  setDayPicksMode: (dayPicksMode) => store.setState({ dayPicksMode }),
+  setProbableMarket: (probableMarket) => store.setState({ probableMarket }),
   selectMatchTab: (matchTab) => store.setState({ matchTab }),
   setDayFilter: (dayFilter) => store.setState({ dayFilter }),
   setValueMode: (valueMode) => store.setState({ valueMode }),

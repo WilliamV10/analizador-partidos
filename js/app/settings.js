@@ -47,6 +47,9 @@ export const SETTING_GROUPS = Object.freeze([
     fields: [
       { path: 'combos.minOdds', kind: 'number', min: 1.01, max: 3, step: 0.05 },
       { path: 'combos.maxSelections', kind: 'number', min: 2, max: 6, step: 1 },
+      { path: 'probable.minOdds', kind: 'number', min: 1.01, max: 2, step: 0.05 },
+      { path: 'probable.minProbability', kind: 'percent', min: 0.4, max: 0.9, step: 0.05 },
+      { path: 'probable.minComboOdds', kind: 'number', min: 1.2, max: 5, step: 0.1 },
     ],
   },
   {
