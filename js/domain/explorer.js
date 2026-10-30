@@ -9,6 +9,8 @@
  * No incluye la mezcla con lo ocurrido realmente de las pestañas Valor y Mercados,
  * por eso puede diferir en uno o dos puntos de ellas.
  *  - Ambos anotan (bttsBreakdown): sí usa la probabilidad final de esas pestañas.
+ *  - Jugadores (playerRanking): Poisson con los tiros esperados de cada jugador (pestaña
+ *    Jugadores), en uno o en todos los partidos.
  */
 import { countVector } from './counts.js';
 import { poissonVector, probabilityWhere, totalGoalsDistribution } from './poisson.js';
@@ -17,6 +19,7 @@ import { poissonVector, probabilityWhere, totalGoalsDistribution } from './poiss
  * Estadísticas que se pueden explorar.
  * `source`: de dónde sale la distribución; `side`: total, home o away;
  * `market`: tipo de mercado de la casa con líneas X.5 de ese total (para mostrar la cuota).
+ * Jugadores: `field` es el tipo de tiro y `start` el valor inicial del deslizador.
  */
 export const EXPLORER_STATS = Object.freeze([
   { id: 'goals', group: 'goals', source: 'goals', side: 'total', market: 'total' },
@@ -37,11 +40,18 @@ export const EXPLORER_STATS = Object.freeze([
   { id: 'shotsOnTargetHome', group: 'shotsOnTarget', source: 'shotsOnTarget', side: 'home', market: null },
   { id: 'shotsOnTargetAway', group: 'shotsOnTarget', source: 'shotsOnTarget', side: 'away', market: null },
   { id: 'btts', group: 'btts', source: 'btts', side: 'total', market: 'btts' },
+  { id: 'playerShotsOnTarget', group: 'players', source: 'players', field: 'shotsOnTarget', side: 'total', market: null, start: 1 },
+  { id: 'playerShots', group: 'players', source: 'players', field: 'shots', side: 'total', market: null, start: 2 },
 ]);
 
 /** ¿La estadística es de sí/no (sin deslizador)? */
 export function isBinaryStat(stat) {
   return stat.source === 'btts';
+}
+
+/** ¿Es un ranking de jugadores (en vez de una distribución del partido)? */
+export function isPlayerStat(stat) {
+  return stat.source === 'players';
 }
 
 export const EXPLORER_GROUPS = Object.freeze([...new Set(EXPLORER_STATS.map((stat) => stat.group))]);
@@ -71,7 +81,7 @@ function goalsDistribution(grid, side) {
 export function statDistribution(analysis, statId) {
   const stat = explorerStat(statId);
   const { config } = analysis;
-  if (isBinaryStat(stat)) return null;
+  if (isBinaryStat(stat) || isPlayerStat(stat)) return null;
   if (stat.source === 'goals') return goalsDistribution(analysis.grid, stat.side);
   if (stat.source === 'halfTime') {
     const { home, away } = analysis.halfTime.lambdas;
@@ -123,4 +133,48 @@ export function bttsBreakdown(analysis) {
     yesAndOver25: probabilityWhere(analysis.grid, (homeGoals, awayGoals) => homeGoals > 0 && awayGoals > 0 && homeGoals + awayGoals >= 3),
     firstHalf: (1 - Math.exp(-home)) * (1 - Math.exp(-away)),
   };
+}
+
+/** P(N o más) de una Poisson de media λ. */
+function poissonAtLeast(lambda, value) {
+  let term = Math.exp(-lambda);
+  let below = 0;
+  for (let count = 0; count < value; count += 1) {
+    below += term;
+    term *= lambda / (count + 1);
+  }
+  return Math.max(0, 1 - below);
+}
+
+/**
+ * @typedef {Object} PlayerRankingEntry
+ * @property {import('./analyzeMatch.js').MatchAnalysis} analysis
+ * @property {'home'|'away'} side
+ * @property {import('./players.js').PlayerProjection} projection
+ * @property {number} expected     tiros esperados (λ)
+ * @property {number} probability  P(N o más)
+ */
+
+/**
+ * Jugadores con más probabilidad de N o más tiros (a puerta o totales) en los partidos
+ * indicados, de mayor a menor. Quedan fuera los que no van a jugar (0 minutos esperados).
+ * @param {import('./analyzeMatch.js').MatchAnalysis[]} analyses
+ * @param {string} statId  playerShotsOnTarget o playerShots
+ * @param {number} value   N (1 = al menos un tiro)
+ * @returns {PlayerRankingEntry[]}
+ */
+export function playerRanking(analyses, statId, value) {
+  const { field } = explorerStat(statId);
+  return analyses
+    .flatMap((analysis) =>
+      ['home', 'away'].flatMap((side) =>
+        analysis.players[side]
+          .filter((projection) => projection.expectedMinutes > 0)
+          .map((projection) => {
+            const expected = projection[field].lambda;
+            return { analysis, side, projection, expected, probability: poissonAtLeast(expected, value) };
+          }),
+      ),
+    )
+    .sort((a, b) => b.probability - a.probability || b.expected - a.expected);
 }

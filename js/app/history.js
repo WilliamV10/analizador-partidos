@@ -11,6 +11,8 @@ import { applyResults } from '../domain/settlement.js';
  */
 export function createHistory(store, clock = () => Date.now()) {
   const records = new Map();
+  /** Análisis ya registrados: al reanalizar se reutilizan los que no cambiaron y no se vuelven a guardar. */
+  let recorded = new WeakSet();
 
   async function save(changed) {
     if (!changed.length) return 0;
@@ -31,12 +33,14 @@ export function createHistory(store, clock = () => Date.now()) {
 
     get: (key) => records.get(key) ?? null,
 
-    /** Guarda (o actualiza) las predicciones de los partidos analizados. */
+    /** Guarda (o actualiza) las predicciones de los partidos analizados. Devuelve cuántos registros cambiaron. */
     recordAnalyses(analyses) {
+      const fresh = analyses.filter((analysis) => !recorded.has(analysis));
+      fresh.forEach((analysis) => recorded.add(analysis));
       const now = clock();
       return save([
-        ...mergePredictions(records, predictionRecords(analyses, now)),
-        ...mergeBacktest(records, backtestRecords(analyses, now)),
+        ...mergePredictions(records, predictionRecords(fresh, now)),
+        ...mergeBacktest(records, backtestRecords(fresh, now)),
       ]);
     },
 
@@ -80,6 +84,7 @@ export function createHistory(store, clock = () => Date.now()) {
 
     async clear() {
       records.clear();
+      recorded = new WeakSet();
       await store.clear();
     },
   };

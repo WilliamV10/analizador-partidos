@@ -398,6 +398,31 @@ export function pagination({ page, pages, total, pageSize, onPage }) {
   );
 }
 
+/**
+ * Lista larga que se dibuja de a tandas: los primeros `first` y un botón "Ver más" que agrega
+ * `batch` cada vez (con muchos partidos pueden ser cientos de filas y dibujarlas todas traba).
+ * @param {{ items: any[], render: (item: any, index: number) => Node, first: number, batch: number,
+ *   tag?: string, className: string, moreLabel: (count: number, rest: number) => string }} options
+ */
+export function growingList({ items, render, first, batch, tag = 'ul', className, moreLabel }) {
+  const list = h(tag, { class: className }, items.slice(0, first).map(render));
+  if (items.length <= first) return list;
+  let shown = first;
+  const more = h('button', { type: 'button', class: 'link' });
+  const paint = () => {
+    const rest = items.length - shown;
+    more.textContent = moreLabel(Math.min(rest, batch), rest);
+    more.hidden = rest <= 0;
+  };
+  more.addEventListener('click', () => {
+    list.append(...items.slice(shown, shown + batch).map((item, index) => render(item, shown + index)));
+    shown += batch;
+    paint();
+  });
+  paint();
+  return [list, more];
+}
+
 /* ---------- Varios ---------- */
 
 /** Abreviatura de 3 letras de un equipo (para jugadores y listas compactas). */

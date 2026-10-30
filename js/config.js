@@ -182,6 +182,8 @@ export const CONFIG = deepFreeze({
     candidatesPerMatch: 2,
     /** Combinadas que se muestran por criterio. */
     shown: 3,
+    /** Partidos (los de mejor pick) que se combinan al sugerir; más es mucho más lento. */
+    poolSize: 12,
   },
   probable: {
     /** Mercados populares que entran en "más probables". */
@@ -227,7 +229,11 @@ export const CONFIG = deepFreeze({
       shotsOnTarget: 16,
       shotsOnTargetHome: 10,
       shotsOnTargetAway: 10,
+      playerShotsOnTarget: 4,
+      playerShots: 6,
     },
+    /** Jugadores a la vista en el ranking de Explorar (el resto con "Ver más"). */
+    playersShown: 25,
   },
   display: {
     goalLines: [0.5, 1.5, 2.5, 3.5, 4.5, 5.5],
