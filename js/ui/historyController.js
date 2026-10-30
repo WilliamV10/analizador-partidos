@@ -83,12 +83,14 @@ export function createHistoryController({ history, store, betDialog }) {
       refresh();
     },
 
-    /** Guarda las predicciones de un análisis nuevo. */
-    recordAnalyses: (analyses) =>
-      run(async () => {
-        await history.recordAnalyses(analyses);
-        return null;
-      }),
+    /** Guarda las predicciones de un análisis nuevo (si nada cambió, no redibuja). */
+    async recordAnalyses(analyses) {
+      try {
+        if (await history.recordAnalyses(analyses)) refresh();
+      } catch (error) {
+        refresh({ message: describeError(error), kind: 'error' });
+      }
+    },
 
     /** Lo que necesitan las tablas de picks para mostrar y registrar apuestas. */
     betting: {

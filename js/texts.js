@@ -4,6 +4,8 @@
  */
 
 const plural = (n, singular, pluralForm) => (n === 1 ? singular : pluralForm);
+/** Botón de las listas que crecen de a tandas. */
+const moreOf = (count, rest) => (count < rest ? `Ver ${count} más (quedan ${rest})` : `Ver ${count} más`);
 
 const TIER_NAMES = { high: 'Alta', medium: 'Media', low: 'Media-baja', none: 'Sin valor' };
 
@@ -206,7 +208,7 @@ export const TEXTS = Object.freeze({
     title: 'Explorar',
     intro:
       'Elige qué mirar y mueve el deslizador: probabilidad de exactamente N, N o más y N o menos. ' +
-      'En «Ambos anotan» ves la probabilidad de que los dos equipos anoten.',
+      'En «Ambos anotan» ves la probabilidad de que los dos equipos anoten y en «Jugadores» quiénes tienen más opciones de rematar.',
     thisMatch: 'Este partido',
     allMatches: (count) => `Todos · ${count}`,
     scopeLabel: 'Un partido o todos',
@@ -218,7 +220,15 @@ export const TEXTS = Object.freeze({
       shots: 'Remates',
       shotsOnTarget: 'Remates a puerta',
       btts: 'Ambos anotan',
+      players: 'Jugadores · remates',
     },
+    playerStats: { shotsOnTarget: 'A puerta', shots: 'Remates totales' },
+    playerTitle: (name, team) => `${name} · ${team}`,
+    playerDetail: (match, status, expected) => `${match} · ${status} · esperado ${expected}`,
+    playersHint: (value, [singular, pluralForm]) =>
+      `Jugadores ordenados por la probabilidad de ${value} ${plural(value, singular, pluralForm)} o más. ` +
+      'Toca uno para ver la pestaña Jugadores de su partido. «Sin XI»: aún sin alineación, se usan sus minutos de promedio.',
+    morePlayers: (count, rest) => moreOf(count, rest),
     groupLabel: 'Estadística',
     sideLabel: 'De quién',
     total: 'Total',
@@ -263,6 +273,7 @@ export const TEXTS = Object.freeze({
     method:
       'Goles: la grilla final del modelo. Corners y tarjetas: binomial negativa con el esperado final (ya mezclado con la cuota). ' +
       'Remates: binomial negativa con lo que remata cada equipo y lo que concede el rival (no hay cuota de la casa). ' +
+      'Jugadores: Poisson con los tiros esperados de cada uno (ritmo por 90, minutos esperados y rival), como en la pestaña Jugadores. ' +
       'No incluye la mezcla con lo ocurrido realmente de las pestañas Valor y Mercados: puede diferir uno o dos puntos. ' +
       'Ambos anotan (Sí/No, cada equipo anota) sí usa la probabilidad final, la misma de esas pestañas.',
   },
@@ -397,7 +408,7 @@ export const TEXTS = Object.freeze({
     copy: 'Copiar combinada',
     copied: 'Combinada copiada.',
     copyTotals: (odds, probability, ev) => `Cuota ${odds} · probabilidad ${probability} · EV ${ev}`,
-    moreCandidates: (count) => `Ver ${count} más`,
+    moreCandidates: (count, rest) => moreOf(count, rest),
     modes: { value: 'Más valor', probable: 'Más probables' },
     modeLabel: 'Criterio',
     modeHints: {
@@ -439,6 +450,9 @@ export const TEXTS = Object.freeze({
   alerts: {
     matchStarted: ({ status, score }) =>
       `El partido ya empezó (${status}${score && score !== '---' ? `, ${score}` : ''}): las cuotas pueden ser en vivo.`,
+    historical: ({ score }) =>
+      `Partido ya jugado${score ? ` (terminó ${score})` : ''}: prueba histórica, analizado solo con la información previa. ` +
+      'Sus selecciones se guardan liquidadas en el Historial (origen: histórico).',
     lineupsNotConfirmed: () => 'Alineaciones no confirmadas: vuelve a correr el script ~1 h antes del partido.',
     noLineups: () => 'No hay alineaciones en el JSON.',
     noResultOdds: () => 'No hay cuotas 1X2: el modelo usa solo estadísticas (menos fiable).',
@@ -608,6 +622,8 @@ export const TEXTS = Object.freeze({
       statusLabel: 'Estado',
       groupLabel: 'Mercado',
       tierLabel: 'Nivel mínimo',
+      originLabel: 'Origen',
+      origins: { all: 'Todos', live: 'En vivo', backtest: 'Histórico' },
       anyTier: 'Cualquier nivel',
       tierAtLeast: (tier) => `${tier} o más`,
       status: { all: 'Todas', pending: 'Pendientes', won: 'Ganadas', lost: 'Perdidas', push: 'Devueltas' },

@@ -36,11 +36,17 @@ Sofascore (navegador)                Página (navegador)                 Claude 
                                     10. Recalcula con el contexto
 ```
 
-**Scripts de Sofascore** (están en `scripts/`: `sofascore_multi_v4.js` y `sofascore_partido_v2.js`):
+**Scripts de Sofascore** (están en `scripts/`: `sofascore_multi_v5.js`, `sofascore_multi_v4.js` y `sofascore_partido_v2.js`):
 
 - **v2:** un partido. Imprime el JSON en consola (`copy(JSON.stringify(window._sofa))`).
 - **v4:** varios partidos. Se filtran por `FECHA`, `TORNEO`, `TORNEO_ID`, `HORA` o `IDS` y se descarga un archivo.
 - El v4 va dentro de un bloque `{ }`, así que se puede pegar varias veces sin recargar. Hace varias peticiones a la vez (`PETICIONES_A_LA_VEZ`), no repite URLs y, si Sofascore responde 429/403, baja el ritmo, espera y reintenta solo.
+- **v5:** muchos partidos de **varias competiciones** (`TORNEOS`: nombres o ids). Dos modos:
+  - `proximos`: partidos sin jugar de hoy y los próximos `DIAS` días.
+  - `historico`: partidos ya jugados de los últimos `DIAS` días, con un bloque `resultado` (mismo formato que el script de resultados). Para cada partido solo usa información **anterior**: partidos previos de cada equipo, H2H previo y las estadísticas en vivo vacías. La app los analiza y guarda sus selecciones **ya liquidadas** con origen "histórico" (`backtestRecords`), así se mide el modelo sin esperar. Si el partido ya tenía una predicción en vivo pendiente, se conserva y solo se liquida (`mergeBacktest`).
+  - Fugas conocidas del modo histórico: la tabla de posiciones es la actual (no la de ese día) y las cuotas son las últimas antes del partido (cierre), que son más difíciles de batir que las que se ven horas antes.
+  - Cuidado con Sofascore: límite de peticiones simultáneas y de ritmo (`PETICIONES_POR_SEGUNDO`, 6 por defecto), pausas crecientes ante 429/403 y, si sigue bloqueando, se detiene y descarga lo que alcanzó (`incompleto`, `faltan`). Procesa `PARTIDOS_A_LA_VEZ` partidos en paralelo y nunca repite una URL (los equipos de una misma liga comparten historial).
+  - Salida: `{ version: 5, modo, filtros, incompleto, faltan, posiciones, partidos }`; la app lo lee igual que el v4.
 - El endpoint `scheduled-events` devuelve 404. Por eso el script busca los partidos desde los endpoints del torneo.
 
 ---
@@ -173,7 +179,7 @@ js/
     value.js          EV, probabilidad justa, nivel de confianza
     ranking.js        ranking global de picks con filtros
     combos.js         combinadas: candidatos, precio y sugeridas
-    explorer.js       distribución de goles, corners y tarjetas para la pantalla Explorar
+    explorer.js       distribución de goles, corners y tarjetas, y ranking de jugadores, para la pantalla Explorar
     history.js        registros del historial (predicciones y apuestas), unión y pendientes
     settlement.js     liquidación con el resultado real y cuota de cierre
     performance.js    ganancia, ROI, acierto, CLV y calibración
@@ -201,19 +207,20 @@ js/
                       shared.js (nombres, mejor pick, tarjeta de partido)
       matchTabs/      pestañas del partido: summary, value, markets, counts, players, teams
 tests/              node --test (sin dependencias), fixtures sintéticos en tests/fixtures
-scripts/            scripts de consola de Sofascore que generan el JSON (v2 y v4)
+scripts/            scripts de consola de Sofascore que generan el JSON (v2, v4 y v5)
 docs/CONTEXTO.md    este archivo
 ```
 
 ### Interfaz
 
 - **Pantallas** (`ui/navigation.js`): Día · Partido · Explorar · Combinada · Contexto · Historial · Ajustes, más la de carga. En el celular van en la barra inferior (6 lugares; Historial se abre con su ícono de la barra superior); en escritorio (≥ 900 px) en la barra superior, y el partido se ve con la lista del día al costado.
-- **Explorar:** se elige en un desplegable goles, corners, tarjetas, remates o remates a puerta (total, local, visita o 1er tiempo) y un valor N con el deslizador: probabilidad de exactamente N, N o más y N o menos, con su cuota justa, la distribución completa y la cuota de la casa si existe esa línea. En "Todos" ordena los partidos por la probabilidad de N o más. La opción **Ambos** (ambos anotan) no lleva deslizador: muestra Sí/No con cuota justa y de la casa, modelo y lo ocurrido, cada equipo anota, ambos anotan + más de 2.5 y ambos anotan en el 1er tiempo; en "Todos" ordena por la probabilidad de Sí. El cálculo está en `domain/explorer.js` (grilla final para goles; binomial negativa con el esperado final para corners y tarjetas; sin la mezcla con lo ocurrido). Los topes del deslizador están en `config.explorer.maxValue`. El deslizador actualiza los resultados en el lugar y la pantalla no se redibuja mientras se mueve. Sin partidos cargados, las de análisis muestran la carga.
+- **Explorar:** se elige en un desplegable goles, corners, tarjetas, remates o remates a puerta (total, local, visita o 1er tiempo) y un valor N con el deslizador: probabilidad de exactamente N, N o más y N o menos, con su cuota justa, la distribución completa y la cuota de la casa si existe esa línea. En "Todos" ordena los partidos por la probabilidad de N o más. La opción **Ambos** (ambos anotan) no lleva deslizador: muestra Sí/No con cuota justa y de la casa, modelo y lo ocurrido, cada equipo anota, ambos anotan + más de 2.5 y ambos anotan en el 1er tiempo; en "Todos" ordena por la probabilidad de Sí. El cálculo está en `domain/explorer.js` (grilla final para goles; binomial negativa con el esperado final para corners y tarjetas; sin la mezcla con lo ocurrido). La opción **Jugadores · remates** ordena a los jugadores de un partido o de todos por la probabilidad de N o más tiros a puerta o totales (Poisson con los tiros esperados de la pestaña Jugadores; quedan fuera los que no van a jugar); se ven los primeros `config.explorer.playersShown` y el resto con "Ver más", y al tocar uno se abre la pestaña Jugadores de su partido. Los topes del deslizador están en `config.explorer.maxValue`. El deslizador actualiza los resultados en el lugar y la pantalla no se redibuja mientras se mueve. Sin partidos cargados, las de análisis muestran la carga.
 - **Cómo se dibuja:** `main.js` guarda todo en el store; cada cambio redibuja la pantalla activa con su función de `ui/screens/`. Ajustes solo se redibuja al entrar, al restaurar o al cambiar el tema (así los deslizadores no pierden el foco). El formulario de carga y los cuadros de texto de contexto y resultados son nodos fijos: no pierden lo pegado.
 - **Para agregar algo:** una pantalla = archivo en `ui/screens/` + entrada en `navigation.js` y `SCREEN_VIEWS` (main.js). Una pestaña del partido = archivo en `ui/screens/matchTabs/` + entrada en `MATCH_TABS` (match.js). Un color o medida = token en `tokens.css`. Un texto = `texts.js`.
 - **Combinada:** el usuario la arma (o parte de una sugerida) con reglas propias y la copia como texto. `domain/combos.js` da los candidatos y el precio. Dos criterios:
   - **Más valor:** picks con EV positivo y nivel mínimo (cuota mínima, nivel, un pick por partido).
   - **Más probables:** lo más probable de los mercados populares (`config.probable.markets`: ganador, doble oportunidad, ambos anotan, goles 1.5/2.5/3.5, hándicap asiático, corners), haya valor o no. Reglas: cuota mínima por selección (1.25 por defecto, para que no entren cuotas regaladas), probabilidad mínima (55 %) y un pick por partido; un desplegable filtra por mercado. Las sugeridas son las combinadas de mayor probabilidad con cuota total ≥ 1.8. Se muestra el EV para ver cuándo lo probable paga poco.
+- **Rendimiento con muchos partidos:** cada análisis se recuerda por partido (`app/analyzeMatches.js`) y solo se rehace si cambia la configuración o su bloque de contexto; el historial solo guarda los análisis nuevos y, si nada cambió, no redibuja. Las listas largas (picks elegibles, jugadores) se dibujan de a tandas con "Ver más" (`growingList` en `components.js`).
 - **Día:** "Mejores picks del día" se puede ver por valor o por probabilidad (con el mismo desplegable de mercado), y "Armar combinada" abre la Combinada en ese criterio.
 - **Contexto:** se puede copiar solo los partidos "por revisar" (alerta de divergencia) y desactivar el ajuste de cada partido con su casilla.
 - **Historial:** pantalla aparte, disponible aunque no haya partidos cargados (ver §9 bis). `io/historyDb.js` guarda en IndexedDB.
@@ -313,7 +320,7 @@ Solo afectan al λ por estadísticas; las tablas siguen mostrando lo ocurrido.
 
 ### 6.10 Combinadas (`combos.js`)
 
-Un pick por partido, EV > 0, nivel ≥ media, cuota ≥ 1.50 (excepciones en `combos.minOddsByType`), de 2 a 4 selecciones; se prueban los 2 mejores picks de cada partido. Asumiendo independencia: `cuota = Π cuotas`, `prob = Π prob`, `EV = Π (win·cuota + push) − 1` (exacto con devoluciones). Se muestran las 3 más probables y las 3 de más valor.
+Un pick por partido, EV > 0, nivel ≥ media, cuota ≥ 1.50 (excepciones en `combos.minOddsByType`), de 2 a 4 selecciones; se prueban los 2 mejores picks de cada partido, solo de los 12 partidos con mejor pick según el criterio (`combos.poolSize`; con 75 partidos, probarlos todos son ~20 millones de combinaciones y la página se trababa). Asumiendo independencia: `cuota = Π cuotas`, `prob = Π prob`, `EV = Π (win·cuota + push) − 1` (exacto con devoluciones). Se muestran las 3 más probables y las 3 de más valor.
 
 ---
 
@@ -428,7 +435,9 @@ La página es estática, así que todo se guarda **en el navegador** (IndexedDB,
 - **Calibración:** todas las predicciones liquidadas por rangos de 10%: predicho vs. ocurrido.
 - **Pronósticos** (`domain/forecasts.js`): en cada partido, la selección más probable de ganador, ambos anotan y más/menos 2.5, haya valor o no. Muestra el acierto total y por mercado contra el acierto que el modelo esperaba (promedio de sus probabilidades). Se calcula desde los registros, así que también sirve con historial viejo.
 
-**Pantalla** (`ui/screens/history.js`): tres modos (Apuestas · Picks · Pronósticos), filtros en desplegables (`domain/historyFilters.js`: estado pendiente/ganada/perdida/devuelta con su conteo, grupo de mercado, nivel mínimo) más búsqueda por equipo o torneo y lista paginada (`history.pageSize`, 20 por página), ordenada por fecha del partido. Los filtros de mercado, nivel y búsqueda cambian también los indicadores; el de estado solo la lista.
+**Origen:** cada registro es "en vivo" (analizado antes del partido) o "histórico" (script v5 en modo histórico, con la etiqueta *Histórico* en la lista).
+
+**Pantalla** (`ui/screens/history.js`): tres modos (Apuestas · Picks · Pronósticos), filtros en desplegables (`domain/historyFilters.js`: estado pendiente/ganada/perdida/devuelta con su conteo, grupo de mercado, origen en vivo/histórico, nivel mínimo) más búsqueda por equipo o torneo y lista paginada (`history.pageSize`, 20 por página), ordenada por fecha del partido. Los filtros de mercado, nivel y búsqueda cambian también los indicadores; el de estado solo la lista.
 
 **Respaldo:** Exportar/Importar un JSON (`"tipo": "historial-analizador"`) para pasar el historial a otro navegador o equipo. Al importar gana el registro con más información (liquidado > con apuesta > más nuevo).
 

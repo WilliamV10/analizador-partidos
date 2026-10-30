@@ -31,7 +31,7 @@ import { CONTEXT_SCOPES, clearContextInput, contextKey, promptAnalyses, renderCo
 import { DAY_FILTERS, DAY_PICK_MODES, renderDay } from './ui/screens/day.js';
 import { EXPLORER_SCOPES, renderExplorer } from './ui/screens/explorer.js';
 import { renderHistory } from './ui/screens/history.js';
-import { DEFAULT_MATCH_TAB, renderMatch } from './ui/screens/match.js';
+import { DEFAULT_MATCH_TAB, PLAYERS_TAB, renderMatch } from './ui/screens/match.js';
 import { PLAYER_SIDES } from './ui/screens/matchTabs/players.js';
 import { VALUE_MODES } from './ui/screens/matchTabs/value.js';
 import { renderSettings } from './ui/screens/settings.js';
@@ -209,6 +209,7 @@ const actions = {
   /** Solo guarda el valor: la pantalla ya lo muestra (no se redibuja, ver SCREEN_VIEWS). */
   setExplorerValue: (explorerValue) => store.setState({ explorerValue }),
   selectExplorerMatch: (selectedId) => store.setState({ selectedId, explorerScope: EXPLORER_SCOPES.MATCH }),
+  openMatchPlayers: (selectedId) => store.setState({ selectedId, matchTab: PLAYERS_TAB, screen: SCREENS.MATCH }),
   betting: historyController.betting,
 
   previewContext(text) {

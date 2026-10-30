@@ -14,13 +14,15 @@ import { renderTeamsTab } from './matchTabs/teams.js';
 import { renderValueTab } from './matchTabs/value.js';
 import { dayTitle, matchCard, valuePicks } from './shared.js';
 
+export const PLAYERS_TAB = 'players';
+
 /** Pestañas en orden. Para agregar una, súmala aquí y su texto en TEXTS.matchTabs. */
 const MATCH_TABS = [
   { id: 'summary', render: renderSummaryTab },
   { id: 'value', render: renderValueTab, count: (analysis) => valuePicks(analysis).length },
   { id: 'markets', render: renderMarketsTab },
   { id: 'counts', render: renderCountsTab },
-  { id: 'players', render: renderPlayersTab },
+  { id: PLAYERS_TAB, render: renderPlayersTab },
   { id: 'teams', render: renderTeamsTab },
 ];
 

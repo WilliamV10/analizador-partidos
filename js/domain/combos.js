@@ -5,6 +5,10 @@
  *    doble oportunidad, ambos anotan, goles 1.5/2.5/3.5, hándicap, corners), haya valor
  *    o no, con una cuota mínima para que no entren cuotas regaladas (ej. 1.04).
  *
+ * Para no probar millones de combinaciones con muchos partidos (75 partidos y hasta 4
+ * selecciones son ~20 millones), solo se combinan los `poolSize` partidos con el mejor
+ * pick según el criterio: las mejores combinadas salen casi siempre de ellos.
+ *
  * Se asume independencia entre partidos. Con devoluciones (empate no apuesta),
  * cada selección paga `cuota` si gana, 1 si devuelve y 0 si pierde, así que:
  *   EV = Π (win·cuota + push) − 1
@@ -47,6 +51,12 @@ function candidatesByMatch(analyses, config) {
         .map((pick) => ({ analysis, pick })),
     )
     .filter((legs) => legs.length);
+}
+
+/** Los `size` grupos (partidos) cuyo mejor pick puntúa más alto según `score`. */
+function topGroups(groups, score, size) {
+  const best = (legs) => Math.max(...legs.map((leg) => score(leg.pick)));
+  return [...groups].sort((a, b) => best(b) - best(a)).slice(0, size);
 }
 
 /** Todas las combinaciones con a lo sumo un pick por partido y tamaño en [min, max]. */
@@ -104,14 +114,14 @@ export function probableCandidates(analyses, config) {
  * con cuota total mínima (si no, ganaría siempre la combinada más corta y sin sentido).
  * @param {import('./analyzeMatch.js').MatchAnalysis[]} analyses
  * @param {typeof import('../config.js').CONFIG.probable} config
- * @param {{ minSelections: number, maxSelections: number, shown: number }} sizes
+ * @param {{ minSelections: number, maxSelections: number, shown: number, poolSize: number }} sizes
  * @returns {Combo[]}
  */
 export function buildProbableCombos(analyses, config, sizes) {
   const groups = analyses
     .map((analysis) => probableCandidates([analysis], config).slice(0, config.candidatesPerMatch))
     .filter((legs) => legs.length);
-  return enumerate(groups, sizes)
+  return enumerate(topGroups(groups, (pick) => pick.probability, sizes.poolSize), sizes)
     .map(priceCombo)
     .filter((combo) => combo.odds >= config.minComboOdds)
     .sort((a, b) => b.probability - a.probability || b.ev - a.ev)
@@ -136,11 +146,11 @@ export function priceCombo(legs) {
  */
 export function buildCombos(analyses, config) {
   const groups = candidatesByMatch(analyses, config);
-  const combos = enumerate(groups, config).map(priceCombo);
-  const top = (compare) => [...combos].sort(compare).slice(0, config.shown);
+  const top = (score, compare) =>
+    enumerate(topGroups(groups, score, config.poolSize), config).map(priceCombo).sort(compare).slice(0, config.shown);
   return {
-    safest: top((a, b) => b.probability - a.probability || b.ev - a.ev),
-    bestValue: top((a, b) => b.ev - a.ev),
+    safest: top((pick) => pick.probability, (a, b) => b.probability - a.probability || b.ev - a.ev),
+    bestValue: top((pick) => pick.ev, (a, b) => b.ev - a.ev),
     candidates: groups.length,
   };
 }

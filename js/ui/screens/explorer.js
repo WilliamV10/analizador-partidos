@@ -4,6 +4,8 @@
  * N o más y N o menos. En "Todos los partidos" ordena los partidos por esa probabilidad.
  *
  * "Ambos anotan" es de sí/no: no lleva deslizador y muestra su propio desglose.
+ * "Jugadores" ordena a los jugadores (de un partido o de todos) por la probabilidad de
+ * N o más tiros a puerta o totales.
  *
  * El deslizador actualiza los resultados en el lugar (sin pasar por el store) para no
  * cortar el arrastre; al soltarlo se guarda el valor.
@@ -15,11 +17,13 @@ import {
   distributionMean,
   explorerStat,
   isBinaryStat,
+  isPlayerStat,
+  playerRanking,
   statDistribution,
   valueProbabilities,
 } from '../../domain/explorer.js';
 import { TEXTS } from '../../texts.js';
-import { card, chips, emptyState, iconButton, kvList, note, pageHead, segmented, selectField, stats } from '../components.js';
+import { card, chips, emptyState, growingList, iconButton, kvList, note, pageHead, segmented, selectField, stats } from '../components.js';
 import { h, replaceContent } from '../dom.js';
 import { EMPTY, decimal, odds, percent } from '../formatters.js';
 import { namesOf, tournamentLine } from './shared.js';
@@ -28,7 +32,14 @@ export const EXPLORER_SCOPES = Object.freeze({ MATCH: 'match', ALL: 'all' });
 
 const fairOdds = (probability) => (probability > 0 ? odds(1 / probability) : EMPTY);
 
+/** Unidad del deslizador: la del grupo o, en jugadores, la del tipo de tiro. */
+const unitOf = (stat) => TEXTS.explorer.units[isPlayerStat(stat) ? stat.field : stat.group];
+
+/** Valor mínimo del deslizador: en jugadores, "0 o más" siempre es 100 %. */
+const minValueOf = (stat) => (isPlayerStat(stat) ? 1 : 0);
+
 function sideLabel(stat, names) {
+  if (isPlayerStat(stat)) return TEXTS.explorer.playerStats[stat.field];
   if (stat.source === 'halfTime' || stat.source === 'cornersFirstHalf') return TEXTS.explorer.firstHalf;
   if (stat.side === 'home') return names?.home ?? TEXTS.match.home;
   if (stat.side === 'away') return names?.away ?? TEXTS.match.away;
@@ -74,7 +85,7 @@ function matchResults(analysis, stat, value, max) {
   const distribution = statDistribution(analysis, stat.id);
   if (!distribution) return emptyState({ title: TEXTS.extra.noData });
   const probabilities = valueProbabilities(distribution, value);
-  const unit = TEXTS.explorer.units[stat.group];
+  const unit = unitOf(stat);
   const quotes = quoteRows(analysis, stat, value, probabilities);
   return [
     stats(
@@ -94,7 +105,7 @@ function matchResults(analysis, stat, value, max) {
 }
 
 function allMatchesResults(analyses, stat, value, onOpen) {
-  const unit = TEXTS.explorer.units[stat.group];
+  const unit = unitOf(stat);
   const rows = analyses
     .map((analysis) => {
       const distribution = statDistribution(analysis, stat.id);
@@ -215,29 +226,78 @@ function bttsAllResults(analyses, onOpen) {
   ];
 }
 
-function sliderCard({ value, max, unit, onPreview, onCommit }) {
+/* ---------- Jugadores ---------- */
+
+function playerRow({ analysis, side, projection, expected, probability }, index, onOpen) {
+  const team = namesOf(analysis.match)[side];
+  return h(
+    'li',
+    {},
+    h(
+      'button',
+      { type: 'button', class: 'rank-item', onClick: () => onOpen(analysis.match.id) },
+      h('span', { class: 'rank-item__index' }, index + 1),
+      h(
+        'span',
+        { class: 'rank-item__text' },
+        h('span', { class: 'rank-item__title' }, TEXTS.explorer.playerTitle(projection.name, team)),
+        h(
+          'span',
+          { class: 'rank-item__sub' },
+          TEXTS.explorer.playerDetail(analysis.match.title, TEXTS.playerStatus[projection.status], decimal(expected, 2)),
+        ),
+      ),
+      h(
+        'span',
+        { class: 'rank-item__side' },
+        h('strong', { class: 'stat__value stat__value--sm tone-accent' }, percent(probability)),
+        h('span', { class: 'muted' }, TEXTS.explorer.fair(fairOdds(probability))),
+      ),
+    ),
+  );
+}
+
+function playerResults(analyses, stat, value, config, onOpen) {
+  const rows = playerRanking(analyses, stat.id, value);
+  if (!rows.length) return emptyState({ title: TEXTS.players.empty });
+  return [
+    note(TEXTS.explorer.playersHint(value, unitOf(stat))),
+    growingList({
+      items: rows,
+      render: (row, index) => playerRow(row, index, onOpen),
+      first: config.explorer.playersShown,
+      batch: config.explorer.playersShown,
+      tag: 'ol',
+      className: 'rank-list',
+      moreLabel: TEXTS.explorer.morePlayers,
+    }),
+  ];
+}
+
+function sliderCard({ value, min, max, unit, onPreview, onCommit }) {
   let current = value;
+  const fill = () => input.style.setProperty('--fill', `${(((current - min) / (max - min)) * 100).toFixed(1)}%`);
   const label = h('span', { class: 'explorer__value' }, TEXTS.explorer.valueLabel(current, unit));
   const input = h('input', {
     class: 'slider',
     type: 'range',
-    min: '0',
+    min: String(min),
     max: String(max),
     step: '1',
     value: String(current),
     'aria-label': TEXTS.explorer.sliderLabel(unit),
   });
   const update = (next, commit) => {
-    current = Math.max(0, Math.min(max, next));
+    current = Math.max(min, Math.min(max, next));
     input.value = String(current);
-    input.style.setProperty('--fill', `${((current / max) * 100).toFixed(1)}%`);
+    fill();
     label.textContent = TEXTS.explorer.valueLabel(current, unit);
     onPreview(current);
     if (commit) onCommit(current);
   };
   input.addEventListener('input', () => update(Number(input.value), false));
   input.addEventListener('change', () => update(Number(input.value), true));
-  input.style.setProperty('--fill', `${((current / max) * 100).toFixed(1)}%`);
+  fill();
   return card(
     {},
     h(
@@ -271,13 +331,20 @@ export function renderExplorer(state, actions) {
   const analysis = analyses.find((candidate) => candidate.match.id === state.selectedId) ?? analyses[0];
   const names = scope === EXPLORER_SCOPES.MATCH ? namesOf(analysis.match) : null;
   const binary = isBinaryStat(stat);
+  const players = isPlayerStat(stat);
+  const min = minValueOf(stat);
   const max = binary ? 0 : state.config.explorer.maxValue[stat.id];
-  const unit = TEXTS.explorer.units[stat.group];
+  const unit = unitOf(stat);
   const pool = scope === EXPLORER_SCOPES.MATCH ? [analysis] : analyses;
-  const initial = binary ? 0 : Math.min(max, state.explorerValue ?? defaultValue(pool.map((candidate) => statDistribution(candidate, stat.id))));
+  const suggested = players ? stat.start : defaultValue(pool.map((candidate) => statDistribution(candidate, stat.id)));
+  const initial = binary ? 0 : Math.max(min, Math.min(max, state.explorerValue ?? suggested));
 
   const results = h('div', { class: 'stack', 'aria-live': 'polite' });
   const draw = (value) => {
+    if (players) {
+      replaceContent(results, playerResults(pool, stat, value, state.config, actions.openMatchPlayers));
+      return;
+    }
     if (binary) {
       replaceContent(results, scope === EXPLORER_SCOPES.MATCH ? bttsMatchResults(analysis) : bttsAllResults(analyses, actions.selectExplorerMatch));
       return;
@@ -329,7 +396,7 @@ export function renderExplorer(state, actions) {
               TEXTS.explorer.sideLabel,
             )
           : null,
-        binary ? null : sliderCard({ value: initial, max, unit, onPreview: draw, onCommit: actions.setExplorerValue }),
+        binary ? null : sliderCard({ value: initial, min, max, unit, onPreview: draw, onCommit: actions.setExplorerValue }),
       ),
       results,
     ),

@@ -7,7 +7,7 @@
 import { buildCombos, buildProbableCombos, comboCandidates, priceCombo, probableCandidates } from '../../domain/combos.js';
 import { TIERS } from '../../domain/value.js';
 import { TEXTS } from '../../texts.js';
-import { button, card, emptyState, iconButton, note, notice, pageHead, sectionLabel, segmented, selectField, stats, tierBadge } from '../components.js';
+import { button, card, emptyState, growingList, iconButton, note, notice, pageHead, sectionLabel, segmented, selectField, stats, tierBadge } from '../components.js';
 import { h } from '../dom.js';
 import { kickoffParts, odds, percent, signedPercent } from '../formatters.js';
 import { dayTitle, pickKey, pickName, tournamentLine } from './shared.js';
@@ -19,6 +19,8 @@ const ODDS_STEP = 0.05;
 const MIN_ODDS_LIMITS = { min: 1.01, max: 3 };
 /** Picks elegibles a la vista; el resto queda en "Ver N más". */
 const CANDIDATES_SHOWN = 6;
+/** Picks que agrega cada "Ver más". */
+const CANDIDATES_BATCH = 20;
 /** Probabilidades mínimas que se pueden exigir en "Más probables". */
 const PROBABILITY_CHOICES = [0.5, 0.6, 0.7, 0.8];
 
@@ -150,18 +152,14 @@ function candidateCard(leg, legs, onAdd) {
 }
 
 function candidateList(candidates, renderLeg) {
-  const shown = h('ul', { class: 'stack stack--tight' }, candidates.slice(0, CANDIDATES_SHOWN).map(renderLeg));
-  const rest = candidates.slice(CANDIDATES_SHOWN);
-  if (!rest.length) return shown;
-  return [
-    shown,
-    h(
-      'details',
-      { class: 'disclosure' },
-      h('summary', { class: 'link' }, TEXTS.combos.moreCandidates(rest.length)),
-      h('ul', { class: 'stack stack--tight' }, rest.map(renderLeg)),
-    ),
-  ];
+  return growingList({
+    items: candidates,
+    render: renderLeg,
+    first: CANDIDATES_SHOWN,
+    batch: CANDIDATES_BATCH,
+    className: 'stack stack--tight',
+    moreLabel: TEXTS.combos.moreCandidates,
+  });
 }
 
 function suggestionCard(combo, title, onUse) {

@@ -6,12 +6,12 @@ Página web estática que analiza el JSON exportado por los scripts de Sofascore
 
 ## Uso
 
-1. Corre el script de Sofascore (v2 para un partido o v4 para varios) y guarda el JSON.
+1. Corre el script de Sofascore y guarda el JSON: v2 para un partido, v4 para varios de una competición, o **v5 para muchos partidos de varias competiciones**. El v5 tiene un modo **histórico**: descarga partidos ya jugados con su resultado para medir el modelo al instante (en el Historial aparecen con origen "Histórico").
 2. Abre la página, pega el JSON o sube uno o varios archivos, y pulsa **Analizar**.
    Lo cargado se guarda en el navegador: al volver a abrir la página se recupera solo. **Limpiar** lo borra.
 3. (Opcional) En **Contexto**, copia el resumen, pásaselo a Claude y pega el bloque que devuelve para recalcular con noticias, bajas y rotaciones.
 4. (Opcional) En **Ajustes** cambias los parámetros del modelo; se guardan en tu navegador. El botón sol/luna de arriba cambia entre modo oscuro y claro.
-5. En **Explorar** mueves un deslizador para ver la probabilidad de 2, 3, 4… goles, corners, tarjetas, remates o remates a puerta (total, por equipo o del 1er tiempo) y la de que ambos anoten, en un partido o en todos a la vez.
+5. En **Explorar** mueves un deslizador para ver la probabilidad de 2, 3, 4… goles, corners, tarjetas, remates o remates a puerta (total, por equipo o del 1er tiempo) y la de que ambos anoten, en un partido o en todos a la vez. En **Jugadores · remates** ves qué jugadores de todos los partidos tienen más probabilidad de 1, 2 o más remates (a puerta o totales).
 6. En **Combinada** armas tu combinada por **más valor** (la casa paga de más) o por **más probables** (ganador, doble oportunidad, ambos anotan, goles, hándicap, corners) y la copias.
 7. **Historial** (con filtros por estado, mercado, nivel y equipo, y lista paginada; en **Pronósticos** ves cuánto acierta el modelo en ganador, ambos anotan y más/menos 2.5): las predicciones se guardan solas; registra tus apuestas con **+**. Después de los partidos, copia el script de resultados, córrelo en la consola de Sofascore y sube el archivo: todo se liquida solo y ves ganancia, ROI, CLV y calibración.
 
@@ -52,7 +52,7 @@ js/io, js/adapters  lectura y conversión del JSON al modelo interno
 js/domain           cálculos (funciones puras, con tests)
 js/ui               interfaz (screens/ = una pantalla por archivo)
 tests/              tests con node:test
-scripts/            scripts de consola de Sofascore (v2 un partido, v4 varios)
+scripts/            scripts de consola de Sofascore (v2 un partido, v4 varios, v5 varias competiciones y modo histórico)
 docs/CONTEXTO.md    documento maestro
 ```
 

@@ -8,7 +8,8 @@
  * carga de resultados y respaldo.
  */
 import { forecastPerformance } from '../../domain/forecasts.js';
-import { ALL_GROUPS, STATUS_FILTERS, matchesScope, matchesStatus, paginate, statusCounts } from '../../domain/historyFilters.js';
+import { ALL_GROUPS, ALL_ORIGINS, ORIGIN_FILTERS, STATUS_FILTERS, matchesScope, matchesStatus, paginate, statusCounts } from '../../domain/historyFilters.js';
+import { RECORD_ORIGINS, recordOrigin } from '../../domain/history.js';
 import { marketGroup } from '../../domain/marketCatalog.js';
 import { PERFORMANCE_MODES, analyzePerformance } from '../../domain/performance.js';
 import { SETTLEMENT, profitPerUnit } from '../../domain/settlement.js';
@@ -99,6 +100,14 @@ function filtersCard(allRecords, modeRecords, filters, mode, actions) {
         })),
         onChange: (group) => actions.setHistoryFilters({ group }),
       }),
+      allRecords.some((record) => recordOrigin(record) === RECORD_ORIGINS.BACKTEST)
+        ? selectField({
+            label: texts.originLabel,
+            value: filters.origin,
+            options: ORIGIN_FILTERS.map((origin) => ({ id: origin, label: texts.origins[origin] })),
+            onChange: (origin) => actions.setHistoryFilters({ origin }),
+          })
+        : null,
       mode === HISTORY_MODES.FORECASTS
         ? null
         : selectField({
@@ -112,7 +121,13 @@ function filtersCard(allRecords, modeRecords, filters, mode, actions) {
 }
 
 function hasActiveFilters(filters) {
-  return filters.status !== STATUS_FILTERS.ALL || filters.group !== ALL_GROUPS || filters.minTier !== 'none' || Boolean(filters.search);
+  return (
+    filters.status !== STATUS_FILTERS.ALL ||
+    filters.group !== ALL_GROUPS ||
+    filters.minTier !== 'none' ||
+    filters.origin !== ALL_ORIGINS ||
+    Boolean(filters.search)
+  );
 }
 
 /* ---------- Registros ---------- */
@@ -137,7 +152,14 @@ function recordRow({ record, odds: takenOdds, stake }, { showMoney, onEditBet, e
       { class: 'record__main' },
       h('span', { class: 'note' }, `${kickoff(record.kickoff)} · ${record.matchTitle}`),
       h('span', { class: 'record__title' }, pickTitle(record.market, record.selection, namesOf(record))),
-      h('span', { class: 'record__meta' }, record.tier !== 'none' ? tierBadge(record.tier) : null, marketLabel(record.market), extra),
+      h(
+        'span',
+        { class: 'record__meta' },
+        record.tier !== 'none' ? tierBadge(record.tier) : null,
+        recordOrigin(record) === RECORD_ORIGINS.BACKTEST ? badge(TEXTS.history.filters.origins.backtest, 'info') : null,
+        marketLabel(record.market),
+        extra,
+      ),
     ),
     h(
       'div',

@@ -1,33 +1,10 @@
 /**
  * Casos de uso: leer el JSON del script de resultados y los respaldos del historial.
  */
-import { classifyMarket } from '../domain/marketCatalog.js';
-import { parseNumberPair } from '../domain/matchRows.js';
-import { parseMarketLines } from '../domain/odds.js';
+import { toMatchResult } from '../adapters/results.js';
 import { HISTORY_BACKUP_TYPE, isHistoryBackup, isResultsBlock } from '../io/formatDetector.js';
 import { IMPORT_ERRORS, ImportError } from '../io/importError.js';
 import { parseJsonText } from '../io/jsonParser.js';
-
-const FIRST_GOAL = new Set(['home', 'away', 'none']);
-
-function toPair(text) {
-  const pair = parseNumberPair(text);
-  return pair ? { home: pair[0], away: pair[1] } : null;
-}
-
-/** @returns {import('../domain/settlement.js').MatchResult} */
-function normalizeResult(raw) {
-  return {
-    id: String(raw?.id ?? ''),
-    finished: raw?.terminado === true,
-    score: toPair(raw?.marcador),
-    halfTime: toPair(raw?.descanso),
-    corners: toPair(raw?.corners),
-    yellows: toPair(raw?.amarillas),
-    firstGoal: FIRST_GOAL.has(raw?.primerGol) ? raw.primerGol : null,
-    markets: parseMarketLines(Array.isArray(raw?.cuotas) ? raw.cuotas : []).markets.map(classifyMarket),
-  };
-}
 
 /**
  * @param {string} text
@@ -39,7 +16,7 @@ export function importResults(text, sourceName) {
   if (!isResultsBlock(root) || !Array.isArray(root.partidos)) {
     throw new ImportError(IMPORT_ERRORS.NOT_RESULTS, { source: sourceName });
   }
-  return root.partidos.map(normalizeResult).filter((result) => result.id);
+  return root.partidos.map(toMatchResult).filter((result) => result.id);
 }
 
 const BACKUP_VERSION = 1;
