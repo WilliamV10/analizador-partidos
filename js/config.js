@@ -187,11 +187,11 @@ export const CONFIG = deepFreeze({
   },
   probable: {
     /** Mercados populares que entran en "más probables". */
-    markets: ['result', 'doubleChance', 'btts', 'total', 'asianHandicap', 'corners'],
+    markets: ['result', 'doubleChance', 'drawNoBet', 'btts', 'total', 'asianHandicap', 'corners', 'cards'],
     /** Líneas de goles que se consideran (las más jugadas). */
     totalLines: [1.5, 2.5, 3.5],
     /** Cuota mínima por selección: evita cuotas regaladas como "más de 0.5 goles @ 1.04". */
-    minOdds: 1.25,
+    minOdds: 1.2,
     /** Probabilidad mínima propia para que una selección entre. */
     minProbability: 0.55,
     /** Cuota total mínima de una combinada sugerida. */

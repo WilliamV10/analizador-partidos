@@ -1,14 +1,27 @@
 /**
- * Historial en tres modos:
+ * Historial en cuatro modos. Se guardan todas las selecciones de cada partido, pero cada
+ * modo muestra solo las que importan:
  *  - Mis apuestas: lo que registró el usuario (cuota y monto propios).
- *  - Picks del modelo: todas las selecciones con valor, a 1 unidad.
+ *  - Valor: los picks del modelo con valor, a 1 unidad.
+ *  - Probables: lo más probable de los mercados populares (reglas de "Más probables"), a 1 unidad.
  *  - Pronósticos: el resultado más probable de cada partido (ganador, ambos anotan,
  *    más/menos 2.5), haya valor o no, para medir cuánto acierta el modelo.
  * Filtros (estado, mercado, nivel, búsqueda), lista paginada, desglose, calibración,
  * carga de resultados y respaldo.
  */
 import { forecastPerformance } from '../../domain/forecasts.js';
-import { ALL_GROUPS, ALL_ORIGINS, ORIGIN_FILTERS, STATUS_FILTERS, matchesScope, matchesStatus, paginate, statusCounts } from '../../domain/historyFilters.js';
+import {
+  ALL_GROUPS,
+  ALL_LEAGUES,
+  ALL_ORIGINS,
+  ORIGIN_FILTERS,
+  STATUS_FILTERS,
+  matchesScope,
+  matchesStatus,
+  paginate,
+  recordLeagues,
+  statusCounts,
+} from '../../domain/historyFilters.js';
 import { RECORD_ORIGINS, recordOrigin } from '../../domain/history.js';
 import { marketGroup } from '../../domain/marketCatalog.js';
 import { PERFORMANCE_MODES, analyzePerformance } from '../../domain/performance.js';
@@ -76,6 +89,7 @@ const searchInput = h('input', {
  */
 function filtersCard(allRecords, modeRecords, filters, mode, actions) {
   const counts = statusCounts(modeRecords);
+  const leagues = recordLeagues(allRecords);
   searchInput.value = filters.search;
   searchInput.onchange = () => actions.setHistoryFilters({ search: searchInput.value.trim() });
   const texts = TEXTS.history.filters;
@@ -100,6 +114,17 @@ function filtersCard(allRecords, modeRecords, filters, mode, actions) {
         })),
         onChange: (group) => actions.setHistoryFilters({ group }),
       }),
+      leagues.length > 1
+        ? selectField({
+            label: TEXTS.leagues.label,
+            value: filters.league,
+            options: [
+              { id: ALL_LEAGUES, label: TEXTS.leagues.all(new Set(allRecords.map((record) => record.matchId)).size) },
+              ...leagues.map(({ name, count }) => ({ id: name, label: TEXTS.leagues.item(name, count) })),
+            ],
+            onChange: (league) => actions.setHistoryFilters({ league }),
+          })
+        : null,
       allRecords.some((record) => recordOrigin(record) === RECORD_ORIGINS.BACKTEST)
         ? selectField({
             label: texts.originLabel,
@@ -108,7 +133,7 @@ function filtersCard(allRecords, modeRecords, filters, mode, actions) {
             onChange: (origin) => actions.setHistoryFilters({ origin }),
           })
         : null,
-      mode === HISTORY_MODES.FORECASTS
+      mode === HISTORY_MODES.FORECASTS || mode === HISTORY_MODES.PROBABLE
         ? null
         : selectField({
             label: texts.tierLabel,
@@ -124,6 +149,7 @@ function hasActiveFilters(filters) {
   return (
     filters.status !== STATUS_FILTERS.ALL ||
     filters.group !== ALL_GROUPS ||
+    filters.league !== ALL_LEAGUES ||
     filters.minTier !== 'none' ||
     filters.origin !== ALL_ORIGINS ||
     Boolean(filters.search)
@@ -239,10 +265,19 @@ function calibrationCard(rows) {
   return card({ label: TEXTS.history.calibration }, body, note(TEXTS.history.calibrationNote));
 }
 
+function bandLabel({ from, to }) {
+  if (to === null) return TEXTS.history.bandFrom(Math.round(from * 100));
+  if (from === 0) return TEXTS.history.bandBelow(Math.round(to * 100));
+  return `${Math.round(from * 100)}–${Math.round(to * 100)}%`;
+}
+
 function performanceView(performance, state, actions) {
   const { historyMode: mode, historyFilters: filters, config } = state;
   const listed = performance.entries.filter((entry) => matchesStatus(entry.record, filters.status));
+  const probable = mode === PERFORMANCE_MODES.PROBABLE;
+  const probabilityTag = (entry) => h('span', {}, TEXTS.history.forecasts.probability(percent(entry.record.probability)));
   return [
+    probable ? note(TEXTS.history.probableRules(odds(config.probable.minOdds), percent(config.probable.minProbability))) : null,
     indicators(performance),
     recordsCard({
       title: TEXTS.history.records,
@@ -250,13 +285,16 @@ function performanceView(performance, state, actions) {
       page: state.historyPage,
       pageSize: config.history.pageSize,
       onPage: actions.setHistoryPage,
-      renderRow: (entry) => recordRow(entry, { showMoney: true, onEditBet: mode === PERFORMANCE_MODES.BETS ? actions.editBet : null }),
+      renderRow: (entry) =>
+        recordRow(entry, { showMoney: true, onEditBet: mode === PERFORMANCE_MODES.BETS ? actions.editBet : null, extra: probable ? probabilityTag(entry) : null }),
       empty: emptyState({ icon: 'history', title: TEXTS.history.empty[mode], text: TEXTS.history.emptyHint[mode] }),
     }),
     h(
       'div',
       { class: 'grid grid--wide' },
-      breakdown(TEXTS.history.byTier, performance.byTier.map((row) => summaryRow(TEXTS.tiers[row.key], row))),
+      probable
+        ? breakdown(TEXTS.history.byProbability, performance.byProbability.map((row) => summaryRow(bandLabel(row), row)))
+        : breakdown(TEXTS.history.byTier, performance.byTier.map((row) => summaryRow(TEXTS.tiers[row.key], row))),
       breakdown(TEXTS.history.byMarket, performance.byMarket.map((row) => summaryRow(TEXTS.marketGroups[row.key] ?? row.key, row))),
     ),
     calibrationCard(performance.calibration),
@@ -362,6 +400,7 @@ function modeCounts(records, config) {
   return {
     [HISTORY_MODES.BETS]: records.filter((record) => record.bet).length,
     [HISTORY_MODES.MODEL]: analyzePerformance(records, PERFORMANCE_MODES.MODEL, config.history).tracked,
+    [HISTORY_MODES.PROBABLE]: analyzePerformance(records, PERFORMANCE_MODES.PROBABLE, config.history, config.probable).tracked,
     [HISTORY_MODES.FORECASTS]: forecastPerformance(records).entries.length,
   };
 }
@@ -375,7 +414,7 @@ export function renderHistory(state, actions) {
   if (!history.ready) return emptyState({ icon: 'history', title: TEXTS.history.loading });
   const isForecasts = mode === HISTORY_MODES.FORECASTS;
   const scoped = history.records.filter((record) => matchesScope(record, isForecasts ? { ...filters, minTier: 'none' } : filters));
-  const performance = isForecasts ? forecastPerformance(scoped) : analyzePerformance(scoped, mode, config.history);
+  const performance = isForecasts ? forecastPerformance(scoped) : analyzePerformance(scoped, mode, config.history, config.probable);
   const counts = modeCounts(history.records, config);
   return [
     pageHead({ eyebrow: TEXTS.history.eyebrow, title: TEXTS.history.title }),

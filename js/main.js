@@ -35,7 +35,7 @@ import { DEFAULT_MATCH_TAB, PLAYERS_TAB, renderMatch } from './ui/screens/match.
 import { PLAYER_SIDES } from './ui/screens/matchTabs/players.js';
 import { VALUE_MODES } from './ui/screens/matchTabs/value.js';
 import { renderSettings } from './ui/screens/settings.js';
-import { dayTitle, tournamentLine } from './ui/screens/shared.js';
+import { ALL_LEAGUES, dayTitle, tournamentLine } from './ui/screens/shared.js';
 import { createStore } from './ui/store.js';
 import { bindThemeToggle, readTheme, setTheme } from './ui/theme.js';
 
@@ -63,6 +63,7 @@ const store = createStore({
   playerSide: PLAYER_SIDES.BOTH,
   teamSide: 'home',
   dayFilter: DAY_FILTERS.ALL,
+  league: ALL_LEAGUES,
   comboRules: { minOdds: initialConfig.combos.minOdds, minTier: initialConfig.combos.minTier, onePerMatch: true },
   comboMode: COMBO_MODES.VALUE,
   probableRules: { minOdds: initialConfig.probable.minOdds, minProbability: initialConfig.probable.minProbability, onePerMatch: true },
@@ -149,6 +150,7 @@ function loadSources(sources, mode, contexts = []) {
     selectedId: matches[0]?.id ?? null,
     matchTab: DEFAULT_MATCH_TAB,
     dayFilter: DAY_FILTERS.ALL,
+    league: ALL_LEAGUES,
   });
 }
 
@@ -197,6 +199,7 @@ const actions = {
   setProbableMarket: (probableMarket) => store.setState({ probableMarket }),
   selectMatchTab: (matchTab) => store.setState({ matchTab }),
   setDayFilter: (dayFilter) => store.setState({ dayFilter }),
+  setLeague: (league) => store.setState({ league, dayFilter: DAY_FILTERS.ALL }),
   setValueMode: (valueMode) => store.setState({ valueMode }),
   setValueGroup: (valueGroup) => store.setState({ valueGroup }),
   setPlayerSide: (playerSide) => store.setState({ playerSide }),
@@ -324,7 +327,7 @@ const SCREEN_VIEWS = {
   [SCREENS.MATCH]: { render: renderMatch },
   [SCREENS.EXPLORE]: {
     render: renderExplorer,
-    key: (state) => [state.analyses, state.config, state.explorerStat, state.explorerScope, state.selectedId],
+    key: (state) => [state.analyses, state.config, state.explorerStat, state.explorerScope, state.selectedId, state.league],
   },
   [SCREENS.COMBO]: { render: renderCombo },
   [SCREENS.CONTEXT]: { render: renderContext },

@@ -219,7 +219,8 @@ docs/CONTEXTO.md    este archivo
 - **Para agregar algo:** una pantalla = archivo en `ui/screens/` + entrada en `navigation.js` y `SCREEN_VIEWS` (main.js). Una pestaña del partido = archivo en `ui/screens/matchTabs/` + entrada en `MATCH_TABS` (match.js). Un color o medida = token en `tokens.css`. Un texto = `texts.js`.
 - **Combinada:** el usuario la arma (o parte de una sugerida) con reglas propias y la copia como texto. `domain/combos.js` da los candidatos y el precio. Dos criterios:
   - **Más valor:** picks con EV positivo y nivel mínimo (cuota mínima, nivel, un pick por partido).
-  - **Más probables:** lo más probable de los mercados populares (`config.probable.markets`: ganador, doble oportunidad, ambos anotan, goles 1.5/2.5/3.5, hándicap asiático, corners), haya valor o no. Reglas: cuota mínima por selección (1.25 por defecto, para que no entren cuotas regaladas), probabilidad mínima (55 %) y un pick por partido; un desplegable filtra por mercado. Las sugeridas son las combinadas de mayor probabilidad con cuota total ≥ 1.8. Se muestra el EV para ver cuándo lo probable paga poco.
+  - **Más probables:** lo más probable de los mercados populares (`config.probable.markets`: ganador, doble oportunidad, empate no apuesta, ambos anotan, goles 1.5/2.5/3.5, hándicap asiático, corners, tarjetas), haya valor o no. Reglas: cuota mínima por selección (1.20 por defecto, para que no entren cuotas regaladas), probabilidad mínima (55 %) y un pick por partido; un desplegable filtra por mercado. Las sugeridas son las combinadas de mayor probabilidad con cuota total ≥ 1.8. Se muestra el EV para ver cuándo lo probable paga poco.
+- **Filtro por liga:** si los partidos cargados son de más de una liga, Día, Combinada y Explorar muestran un desplegable "Liga" (uno solo para las tres, `state.league`; `inLeague`/`leagueSelect` en `screens/shared.js`). En la Combinada filtra candidatos y sugeridas; las selecciones ya elegidas de otra liga se mantienen. Con más de 3 ligas, el encabezado dice "N ligas".
 - **Rendimiento con muchos partidos:** cada análisis se recuerda por partido (`app/analyzeMatches.js`) y solo se rehace si cambia la configuración o su bloque de contexto; el historial solo guarda los análisis nuevos y, si nada cambió, no redibuja. Las listas largas (picks elegibles, jugadores) se dibujan de a tandas con "Ver más" (`growingList` en `components.js`).
 - **Día:** "Mejores picks del día" se puede ver por valor o por probabilidad (con el mismo desplegable de mercado), y "Armar combinada" abre la Combinada en ese criterio.
 - **Contexto:** se puede copiar solo los partidos "por revisar" (alerta de divergencia) y desactivar el ajuste de cada partido con su casilla.
@@ -421,7 +422,7 @@ La página es estática, así que todo se guarda **en el navegador** (IndexedDB,
 
 **Resultados** (flujo semiautomático):
 
-1. Historial → **Copiar script**: la página arma un script con los ids pendientes (hasta 40, `history.maxScriptMatches`).
+1. Historial → **Copiar script**: la página arma un script con los ids pendientes (hasta 40, `history.maxScriptMatches`). El script (`ui/resultsScriptSource.js`) pide de a una, ~3 por segundo y con 15 s de límite por petición. Si Sofascore responde 429/403 avisa en la consola y espera 10, 20, 30… s; tras 5 bloqueos seguidos para y descarga lo que tiene (`incompleto`, `faltan`). Los que faltan siguen pendientes y salen en el próximo script. `window._sofaParar = true` también corta y descarga. Antes pedía 3 cosas a la vez y, al bloquearse, reintentaba en silencio: parecía trabado con más de 20 partidos.
 2. Se pega en la consola de sofascore.com. Por cada partido trae estado, marcador a 90' (`normaltime`), descanso, corners, amarillas, primer gol (incidencias) y las últimas cuotas. Descarga `resultados_sofascore_FECHA.json` con `"tipo": "resultados-sofascore"`.
 3. Se sube o pega en el Historial: se **liquida todo lo pendiente** de los partidos terminados. Los no terminados quedan pendientes para el próximo script.
 
@@ -429,7 +430,8 @@ La página es estática, así que todo se guarda **en el navegador** (IndexedDB,
 
 **Rendimiento** (`domain/performance.js`):
 
-- **Mis apuestas:** con la cuota y el monto registrados. **Picks del modelo:** todos los picks con valor, a 1 unidad y a la cuota del análisis.
+- Se guardan **todas** las selecciones de cada partido (~38); cada modo muestra solo las que importan.
+- **Mis apuestas:** con la cuota y el monto registrados. **Valor:** todos los picks con valor, a 1 unidad y a la cuota del análisis. **Probables:** las que cumplen las reglas de "Más probables" (`config.probable`: mercados populares, cuota ≥ 1.20, probabilidad ≥ 55 %), haya valor o no, a 1 unidad; en vez del desglose por nivel se ve por rango de probabilidad. Como las reglas se aplican al mirar, cambiarlas en Ajustes recalcula todo el historial.
 - Ganancia, ROI, acierto (sin contar devoluciones), por nivel de confianza y por mercado.
 - **CLV** = cuota tomada / cuota de cierre − 1. La cuota de cierre es la que devuelve Sofascore en el script de resultados; si no la trae para ese mercado, queda vacía.
 - **Calibración:** todas las predicciones liquidadas por rangos de 10%: predicho vs. ocurrido.
@@ -437,7 +439,7 @@ La página es estática, así que todo se guarda **en el navegador** (IndexedDB,
 
 **Origen:** cada registro es "en vivo" (analizado antes del partido) o "histórico" (script v5 en modo histórico, con la etiqueta *Histórico* en la lista).
 
-**Pantalla** (`ui/screens/history.js`): tres modos (Apuestas · Picks · Pronósticos), filtros en desplegables (`domain/historyFilters.js`: estado pendiente/ganada/perdida/devuelta con su conteo, grupo de mercado, origen en vivo/histórico, nivel mínimo) más búsqueda por equipo o torneo y lista paginada (`history.pageSize`, 20 por página), ordenada por fecha del partido. Los filtros de mercado, nivel y búsqueda cambian también los indicadores; el de estado solo la lista.
+**Pantalla** (`ui/screens/history.js`): cuatro modos (Apuestas · Valor · Probables · Pronósticos; en el celular van en 2 columnas), filtros en desplegables (`domain/historyFilters.js`: estado pendiente/ganada/perdida/devuelta con su conteo, grupo de mercado, liga (si hay más de una), origen en vivo/histórico, nivel mínimo) más búsqueda por equipo o torneo y lista paginada (`history.pageSize`, 20 por página), ordenada por fecha del partido. Los filtros de mercado, nivel y búsqueda cambian también los indicadores; el de estado solo la lista.
 
 **Respaldo:** Exportar/Importar un JSON (`"tipo": "historial-analizador"`) para pasar el historial a otro navegador o equipo. Al importar gana el registro con más información (liquidado > con apuesta > más nuevo).
 

@@ -5,7 +5,7 @@
 import { ALERT_CODES } from '../../domain/alerts.js';
 import { TIERS } from '../../domain/value.js';
 import { TEXTS, marketLabel, pickTitle } from '../../texts.js';
-import { badge, resultBar, resultLegend, signed, tierBadge } from '../components.js';
+import { badge, resultBar, resultLegend, selectField, signed, tierBadge } from '../components.js';
 import { h } from '../dom.js';
 import { decimal, kickoffParts, odds, signedPercent } from '../formatters.js';
 
@@ -64,9 +64,13 @@ export function dayTitle(analyses) {
   return `${TEXTS.weekdays[days[0].getDay()]} ${short(days[0])}`;
 }
 
-/** "Liga MX · Apertura · J13" (torneos distintos se unen). */
+/** Con más torneos que esto, la línea dice "N ligas" en vez de nombrarlos todos. */
+const TOURNAMENTS_NAMED = 3;
+
+/** "Liga MX · Apertura · J13" (torneos distintos se unen; muchos, se cuentan). */
 export function tournamentLine(analyses) {
   const tournaments = [...new Set(analyses.map((analysis) => analysis.match.tournament).filter(Boolean))];
+  if (tournaments.length > TOURNAMENTS_NAMED) return TEXTS.leagues.count(tournaments.length);
   const rounds = [...new Set(analyses.map((analysis) => analysis.match.round).filter(Boolean))];
   return [tournaments.join(', '), rounds.length === 1 ? TEXTS.meta.roundShort(rounds[0]) : null].filter(Boolean).join(' · ');
 }
@@ -131,4 +135,43 @@ export function matchCard(analysis, { onOpen, selected = false, compact = false 
     resultLegend(probabilities.result, `xG ${decimal(lambdas.final.home)}–${decimal(lambdas.final.away)}`),
     pickLine(analysis),
   );
+}
+
+/* ---------- Filtro por liga (Día, Combinada y Explorar) ---------- */
+
+export const ALL_LEAGUES = 'all';
+
+/** Ligas de los partidos cargados con cuántos partidos tiene cada una, de más a menos. */
+export function leaguesOf(analyses) {
+  const counts = new Map();
+  analyses.forEach(({ match }) => {
+    if (match.tournament) counts.set(match.tournament, (counts.get(match.tournament) ?? 0) + 1);
+  });
+  return [...counts].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
+/** Liga elegida si sigue existiendo en los partidos cargados; si no, todas. */
+export function activeLeague(analyses, league) {
+  return league !== ALL_LEAGUES && analyses.some(({ match }) => match.tournament === league) ? league : ALL_LEAGUES;
+}
+
+/** Partidos de la liga elegida (o todos). */
+export function inLeague(analyses, league) {
+  const active = activeLeague(analyses, league);
+  return active === ALL_LEAGUES ? analyses : analyses.filter(({ match }) => match.tournament === active);
+}
+
+/** Desplegable "Liga"; solo aparece si hay partidos de más de una. */
+export function leagueSelect(analyses, league, onChange) {
+  const leagues = leaguesOf(analyses);
+  if (leagues.length < 2) return null;
+  return selectField({
+    label: TEXTS.leagues.label,
+    value: activeLeague(analyses, league),
+    options: [
+      { id: ALL_LEAGUES, label: TEXTS.leagues.all(analyses.length) },
+      ...leagues.map(({ name, count }) => ({ id: name, label: TEXTS.leagues.item(name, count) })),
+    ],
+    onChange,
+  });
 }
