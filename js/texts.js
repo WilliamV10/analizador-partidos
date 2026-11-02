@@ -10,6 +10,12 @@ const moreOf = (count, rest) => (count < rest ? `Ver ${count} más (quedan ${res
 const TIER_NAMES = { high: 'Alta', medium: 'Media', low: 'Media-baja', none: 'Sin valor' };
 
 export const TEXTS = Object.freeze({
+  leagues: {
+    label: 'Liga',
+    all: (count) => `Todas las ligas · ${count}`,
+    item: (name, count) => `${name} · ${count}`,
+    count: (count) => `${count} ligas`,
+  },
   app: {
     disclaimer: 'Son probabilidades, no certezas. Apuesta solo lo que estés dispuesto a perder.',
     copyFallback: 'El navegador no dejó copiar: se descargó como archivo de texto.',
@@ -414,8 +420,8 @@ export const TEXTS = Object.freeze({
     modeHints: {
       value: 'Picks donde la casa paga más de lo que debería según el modelo (EV positivo).',
       probable:
-        'Lo más probable de los mercados populares (ganador, doble oportunidad, ambos anotan, goles 1.5/2.5/3.5, ' +
-        'hándicap y corners), haya valor o no. Mira el EV: un pick muy probable puede pagar poco.',
+        'Lo más probable de los mercados populares (ganador, doble oportunidad, empate no apuesta, ambos anotan, ' +
+        'goles 1.5/2.5/3.5, hándicap, corners y tarjetas), haya valor o no. Mira el EV: un pick muy probable puede pagar poco.',
     },
     probableTitles: ['La más probable', 'Segunda más probable'],
     probableMarket: 'Mercado',
@@ -425,8 +431,10 @@ export const TEXTS = Object.freeze({
       doubleChance: 'Doble oportunidad',
       btts: 'Ambos anotan',
       total: 'Goles (1.5 / 2.5 / 3.5)',
+      drawNoBet: 'Empate no apuesta',
       asianHandicap: 'Hándicap asiático',
       corners: 'Corners',
+      cards: 'Tarjetas',
     },
     minProbability: 'Probabilidad mínima',
     minOddsProbableHint: 'Evita cuotas regaladas (ej. 1.04)',
@@ -610,7 +618,7 @@ export const TEXTS = Object.freeze({
     eyebrow: 'Tus apuestas y los picks del modelo',
     back: '← Volver al análisis',
     loading: 'Cargando historial…',
-    modes: { bets: 'Apuestas', model: 'Picks', forecasts: 'Pronósticos' },
+    modes: { bets: 'Apuestas', model: 'Valor', probable: 'Probables', forecasts: 'Pronósticos' },
     score: (score) => `Resultado ${score}`,
     stake: (amount) => `Monto ${amount} u`,
     clvValue: (clv, closing) => `CLV ${clv} (cierre ${closing})`,
@@ -661,11 +669,19 @@ export const TEXTS = Object.freeze({
     empty: {
       bets: 'Todavía no registraste apuestas.',
       model: 'Todavía no hay picks con valor guardados.',
+      probable: 'Todavía no hay selecciones probables guardadas.',
     },
     emptyHint: {
       bets: 'Toca "+" junto a un pick en la pestaña Valor de un partido.',
       model: 'Cada análisis guarda solo sus predicciones (partidos que aún no empiezan).',
+      probable: 'Cada análisis guarda todas las selecciones; aquí salen las que cumplen las reglas de «Más probables».',
     },
+    probableRules: (minOdds, minProbability) =>
+      `Lo más probable de los mercados populares con cuota desde ${minOdds} y probabilidad desde ${minProbability}, ` +
+      'a 1 unidad, haya valor o no. Las reglas se cambian en Ajustes.',
+    byProbability: 'Por probabilidad',
+    bandBelow: (to) => `Menos de ${to}%`,
+    bandFrom: (from) => `${from}% o más`,
     columns: {
       count: 'N',
       hitRate: 'Acierto',

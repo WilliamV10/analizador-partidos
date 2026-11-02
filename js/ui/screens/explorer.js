@@ -26,7 +26,7 @@ import { TEXTS } from '../../texts.js';
 import { card, chips, emptyState, growingList, iconButton, kvList, note, pageHead, segmented, selectField, stats } from '../components.js';
 import { h, replaceContent } from '../dom.js';
 import { EMPTY, decimal, odds, percent } from '../formatters.js';
-import { namesOf, tournamentLine } from './shared.js';
+import { inLeague, leagueSelect, namesOf, tournamentLine } from './shared.js';
 
 export const EXPLORER_SCOPES = Object.freeze({ MATCH: 'match', ALL: 'all' });
 
@@ -325,7 +325,7 @@ function matchSelect(analyses, selectedId, onSelect) {
  * @param {Object} actions setExplorerStat, setExplorerScope, setExplorerValue, selectExplorerMatch
  */
 export function renderExplorer(state, actions) {
-  const { analyses } = state;
+  const analyses = inLeague(state.analyses, state.league);
   const stat = explorerStat(state.explorerStat);
   const scope = analyses.length > 1 ? state.explorerScope : EXPLORER_SCOPES.MATCH;
   const analysis = analyses.find((candidate) => candidate.match.id === state.selectedId) ?? analyses[0];
@@ -380,6 +380,7 @@ export function renderExplorer(state, actions) {
         h(
           'div',
           { class: 'stack stack--tight' },
+          leagueSelect(state.analyses, state.league, actions.setLeague),
           scope === EXPLORER_SCOPES.MATCH && analyses.length > 1 ? matchSelect(analyses, analysis.match.id, actions.selectExplorerMatch) : null,
           selectField({
             label: TEXTS.explorer.groupLabel,

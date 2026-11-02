@@ -58,7 +58,7 @@ const DESCARGAR = true;
         proximaSalida = salida + intervalo;
         if (salida > ahora) await sleep(salida - ahora);
         if (bloqueado) return null;
-        const r = await fetch(API + u);
+        const r = await fetch(API + u, { signal: AbortSignal.timeout(15000) }); // sin limite, una respuesta que nunca llega lo deja colgado
         st = r.status;
         if (r.ok) { hechas++; seguidos = 0; return await r.json(); }
         if (st !== 429 && st !== 403 && st < 500) return null; // 404 etc.

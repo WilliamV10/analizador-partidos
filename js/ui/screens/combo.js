@@ -10,7 +10,7 @@ import { TEXTS } from '../../texts.js';
 import { button, card, emptyState, growingList, iconButton, note, notice, pageHead, sectionLabel, segmented, selectField, stats, tierBadge } from '../components.js';
 import { h } from '../dom.js';
 import { kickoffParts, odds, percent, signedPercent } from '../formatters.js';
-import { dayTitle, pickKey, pickName, tournamentLine } from './shared.js';
+import { dayTitle, inLeague, leagueSelect, pickKey, pickName, tournamentLine } from './shared.js';
 
 /** Niveles que se pueden exigir como mínimo. */
 const TIER_CHOICES = [TIERS.LOW, TIERS.MEDIUM, TIERS.HIGH];
@@ -56,14 +56,14 @@ export function probableMarketSelect(config, value, onChange) {
  * Lo que cambia según el modo: de dónde salen los candidatos y las sugeridas.
  * @returns {{ rules: Object, candidatesOf: (analyses: Object[]) => Object[], suggestions: () => { title: string, combo: Object }[] }}
  */
-function modeSetup(state) {
+function modeSetup(state, analyses) {
   if (state.comboMode === COMBO_MODES.PROBABLE) {
     const config = probableConfig(state.config, state.probableRules, state.probableMarket);
     return {
       rules: state.probableRules,
       candidatesOf: (analyses) => probableCandidates(analyses, config),
       suggestions: () =>
-        buildProbableCombos(state.analyses, config, state.config.combos)
+        buildProbableCombos(analyses, config, state.config.combos)
           .slice(0, 2)
           .map((combo, index) => ({ title: TEXTS.combos.probableTitles[index], combo })),
     };
@@ -73,7 +73,7 @@ function modeSetup(state) {
     rules: state.comboRules,
     candidatesOf: (analyses) => comboCandidates(analyses, config),
     suggestions: () => {
-      const { safest, bestValue } = buildCombos(state.analyses, config);
+      const { safest, bestValue } = buildCombos(analyses, config);
       return [
         safest[0] ? { title: TEXTS.combos.safest, combo: safest[0] } : null,
         bestValue[0] && bestValue[0] !== safest[0] ? { title: TEXTS.combos.bestValue, combo: bestValue[0] } : null,
@@ -228,12 +228,14 @@ function rulesCard(mode, rules, setRules) {
  * @param {{ setComboKeys: Function, setComboRules: Function, copyText: Function }} actions
  */
 export function renderCombo(state, actions) {
-  const { analyses, comboKeys } = state;
+  const { comboKeys } = state;
+  /** Los candidatos y sugeridas salen de la liga elegida; las elegidas, de todos los partidos. */
+  const analyses = inLeague(state.analyses, state.league);
   const mode = state.comboMode;
-  const setup = modeSetup(state);
+  const setup = modeSetup(state, analyses);
   const { rules } = setup;
   const setRules = mode === COMBO_MODES.PROBABLE ? actions.setProbableRules : actions.setComboRules;
-  const legs = resolveLegs(analyses, comboKeys);
+  const legs = resolveLegs(state.analyses, comboKeys);
   const usedMatches = new Set(legs.map(({ analysis }) => analysis.match.id));
   const chosen = new Set(comboKeys);
   const candidates = setup.candidatesOf(analyses).filter(
@@ -260,7 +262,12 @@ export function renderCombo(state, actions) {
       TEXTS.combos.modeLabel,
     ),
     note(mode === COMBO_MODES.PROBABLE ? TEXTS.combos.modeHints.probable : TEXTS.combos.modeHints.value),
-    mode === COMBO_MODES.PROBABLE ? probableMarketSelect(state.config, state.probableMarket, actions.setProbableMarket) : null,
+    h(
+      'div',
+      { class: 'fields' },
+      leagueSelect(state.analyses, state.league, actions.setLeague),
+      mode === COMBO_MODES.PROBABLE ? probableMarketSelect(state.config, state.probableMarket, actions.setProbableMarket) : null,
+    ),
     h(
       'div',
       { class: 'grid grid--wide' },

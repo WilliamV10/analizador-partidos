@@ -1,6 +1,6 @@
 /**
  * Filtros del historial: estado (pendiente, ganada, perdida, devuelta), grupo de
- * mercado, nivel mínimo, origen (en vivo o histórico) y búsqueda por equipo o torneo.
+ * mercado, liga, nivel mínimo, origen (en vivo o histórico) y búsqueda por equipo o torneo.
  * Funciones puras.
  */
 import { RECORD_ORIGINS, recordOrigin } from './history.js';
@@ -12,6 +12,7 @@ import { normalizeName } from '../utils/text.js';
 export const STATUS_FILTERS = Object.freeze({ ALL: 'all', PENDING: 'pending', WON: 'won', LOST: 'lost', PUSH: 'push' });
 export const ALL_GROUPS = 'all';
 export const ALL_ORIGINS = 'all';
+export const ALL_LEAGUES = 'all';
 export const ORIGIN_FILTERS = Object.freeze([ALL_ORIGINS, RECORD_ORIGINS.LIVE, RECORD_ORIGINS.BACKTEST]);
 
 const STATUS_OF_SETTLEMENT = {
@@ -31,6 +32,7 @@ export function recordStatus(record) {
  * @typedef {Object} HistoryFilters
  * @property {string} status   ver STATUS_FILTERS
  * @property {string} group    grupo de mercado (MARKET_GROUPS) o 'all'
+ * @property {string} league   torneo o 'all'
  * @property {string} minTier  none, low, medium o high
  * @property {string} origin   all, live o backtest
  * @property {string} search   texto libre (equipo o torneo)
@@ -39,13 +41,15 @@ export function recordStatus(record) {
 export const DEFAULT_HISTORY_FILTERS = Object.freeze({
   status: STATUS_FILTERS.ALL,
   group: ALL_GROUPS,
+  league: ALL_LEAGUES,
   minTier: 'none',
   origin: ALL_ORIGINS,
   search: '',
 });
 
 /** Filtros que cambian los indicadores (todo menos el estado). */
-export function matchesScope(record, { group, minTier, origin = ALL_ORIGINS, search }) {
+export function matchesScope(record, { group, league = ALL_LEAGUES, minTier, origin = ALL_ORIGINS, search }) {
+  if (league !== ALL_LEAGUES && record.tournament !== league) return false;
   if (origin !== ALL_ORIGINS && recordOrigin(record) !== origin) return false;
   if (group !== ALL_GROUPS && marketGroup(record.market) !== group) return false;
   if (TIER_ORDER.indexOf(record.tier) < TIER_ORDER.indexOf(minTier)) return false;
@@ -73,4 +77,15 @@ export function paginate(items, page, pageSize) {
   const pages = Math.max(1, Math.ceil(items.length / pageSize));
   const current = Math.min(Math.max(0, page), pages - 1);
   return { items: items.slice(current * pageSize, (current + 1) * pageSize), page: current, pages, total: items.length };
+}
+
+/** Torneos de los registros con cuántos partidos tiene cada uno, de más a menos. */
+export function recordLeagues(records) {
+  const matches = new Map();
+  records.forEach((record) => {
+    if (!record.tournament) return;
+    if (!matches.has(record.tournament)) matches.set(record.tournament, new Set());
+    matches.get(record.tournament).add(record.matchId);
+  });
+  return [...matches].map(([name, ids]) => ({ name, count: ids.size })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }

@@ -3,22 +3,30 @@
  *
  *  - Modo "bets": las apuestas registradas por el usuario, con su cuota y monto.
  *  - Modo "model": todos los picks con valor que dio el modelo, a 1 unidad y a la cuota del análisis.
+ *  - Modo "probable": las selecciones más probables de los mercados populares (las mismas
+ *    reglas de "Más probables": cuota y probabilidad mínimas), haya valor o no, a 1 unidad.
+ *    El historial guarda todas las selecciones de cada partido; estos modos solo eligen cuáles mirar.
  *  - CLV = cuota tomada / cuota de cierre − 1 (positivo = le ganaste al mercado).
  *  - Calibración: en cada rango de probabilidad, cuánto se predijo y cuánto ocurrió.
  */
+import { isProbableCandidate } from './combos.js';
 import { marketGroup } from './marketCatalog.js';
 import { SETTLEMENT, profitPerUnit } from './settlement.js';
 import { TIERS, TIER_ORDER } from './value.js';
 
-export const PERFORMANCE_MODES = Object.freeze({ BETS: 'bets', MODEL: 'model' });
+export const PERFORMANCE_MODES = Object.freeze({ BETS: 'bets', MODEL: 'model', PROBABLE: 'probable' });
+
+/** Rangos de probabilidad del desglose "por probabilidad" (límite inferior de cada uno). */
+const PROBABILITY_BANDS = [0, 0.6, 0.7, 0.8, 0.9];
 
 /** Parte ganada y perdida de cada estado (la devolución no cuenta). */
 const WIN_SHARE = { win: 1, halfWin: 0.5, push: 0, halfLoss: 0, loss: 0 };
 const LOSS_SHARE = { win: 0, halfWin: 0, push: 0, halfLoss: 0.5, loss: 1 };
 
 /** Apuesta efectiva de un registro según el modo, o null si no entra. */
-function stakeOf(record, mode) {
+function stakeOf(record, mode, probable) {
   if (mode === PERFORMANCE_MODES.BETS) return record.bet ? { odds: record.bet.odds, stake: record.bet.stake } : null;
+  if (mode === PERFORMANCE_MODES.PROBABLE) return record.odds && isProbableCandidate(record, probable) ? { odds: record.odds, stake: 1 } : null;
   return record.tier !== TIERS.NONE ? { odds: record.odds, stake: 1 } : null;
 }
 
@@ -102,14 +110,17 @@ function calibration(records, bins) {
  * @param {import('./history.js').HistoryRecord[]} records
  * @param {string} mode  PERFORMANCE_MODES
  * @param {{ calibrationBins: number }} config
+ * @param {typeof import('../config.js').CONFIG.probable} [probable]  reglas del modo "probable"
  */
-export function analyzePerformance(records, mode, config) {
+export function analyzePerformance(records, mode, config, probable) {
   const candidates = records
-    .map((record) => ({ record, ...stakeOf(record, mode) }))
+    .map((record) => ({ record, ...stakeOf(record, mode, probable) }))
     .filter((entry) => entry.stake !== undefined);
   const settled = candidates.filter((entry) => entry.record.settlement);
   const byTier = groupBy(settled, (entry) => entry.record.tier);
   const byMarket = groupBy(settled, (entry) => marketGroup(entry.record.market));
+  const bandOf = (entry) => PROBABILITY_BANDS.findLast((from) => entry.record.probability >= from);
+  const byBand = groupBy(settled, bandOf);
   return {
     total: summarize(settled),
     tracked: candidates.length,
@@ -119,6 +130,10 @@ export function analyzePerformance(records, mode, config) {
       .filter((tier) => byTier.has(tier))
       .map((tier) => ({ key: tier, ...summarize(byTier.get(tier)) })),
     byMarket: [...byMarket.entries()].map(([key, entries]) => ({ key, ...summarize(entries) })),
+    /** Por probabilidad del modelo: `from` y `to` (null en el último rango). */
+    byProbability: PROBABILITY_BANDS.map((from, index) => ({ from, to: PROBABILITY_BANDS[index + 1] ?? null }))
+      .filter(({ from }) => byBand.has(from))
+      .map(({ from, to }) => ({ key: from, from, to, ...summarize(byBand.get(from)) })),
     calibration: calibration(records, config.calibrationBins),
     entries: candidates,
   };
