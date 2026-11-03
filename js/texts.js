@@ -490,7 +490,9 @@ export const TEXTS = Object.freeze({
     scoreGridRows: (name) => `Filas: goles de ${name}`,
     scoreGridColumns: (name) => `Columnas: goles de ${name}`,
     valueNote:
-      'Casa = probabilidad de la cuota sin margen. Mi prob. no cuenta la devolución (empate no apuesta). ' +
+      'Casa = probabilidad de la cuota sin margen. Mi prob. no cuenta la devolución (empate no apuesta) y ya está ' +
+      'acercada a la casa según lo que acierta el modelo en cada mercado (en goles y ambos anotan pesa más el modelo; ' +
+      'en 1X2, hándicap, corners y tarjetas, la casa), por eso puede diferir de la pestaña Mercados. ' +
       'EV = ganancia esperada por cada 1 apostado. Ventaja = mi prob. − casa.',
     result: 'Resultado',
     resultNote: (marketWeight) =>

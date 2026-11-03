@@ -75,13 +75,24 @@ export const CONFIG = deepFreeze({
     smallSample: 6,
   },
   value: {
-    highEv: 0.08,
-    mediumEv: 0.04,
+    /**
+     * Peso del modelo frente a la casa al calcular el valor, por grupo de mercado:
+     *   prob. usada = peso × modelo + (1 − peso) × casa sin margen.
+     * Sale del historial (5.000 selecciones liquidadas): en goles y ambos anotan el modelo
+     * acierta mejor que la casa; en 1X2, hándicap, corners y tarjetas la casa acierta mejor,
+     * así que ahí el modelo pesa poco y casi no salen picks. 1 = solo modelo, 0 = solo casa.
+     */
+    modelWeight: { goals: 0.7, btts: 0.7, firstGoal: 0.5, halfTime: 0.5, result: 0.3, handicap: 0.3, corners: 0.2, cards: 0.3 },
+    /** Peso del modelo en mercados sin peso propio. */
+    defaultModelWeight: 0.4,
+    /** EV para nivel alto y medio (con la probabilidad ya acercada a la casa, los EV son más chicos). */
+    highEv: 0.05,
+    mediumEv: 0.025,
     /**
      * Por debajo de esta probabilidad no se recomienda: un pick con valor también debe ser
-     * más probable que no (con cuotas largas el error del modelo pesa demasiado).
+     * bastante probable (con cuotas largas el error del modelo pesa demasiado).
      */
-    minProbability: 0.5,
+    minProbability: 0.55,
     /** Por debajo de esta cuota no se recomienda (no compensa el riesgo). */
     minOdds: 1.15,
     /** Diferencia máxima modelo vs. realidad para que un pick pueda ser de confianza alta. */
