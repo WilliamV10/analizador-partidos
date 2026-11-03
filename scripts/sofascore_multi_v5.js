@@ -13,6 +13,11 @@
 // Sofascore responde 429/403, baja el ritmo, espera y reintenta. Si aun asi sigue bloqueando,
 // se detiene y descarga lo que alcanzo a juntar (no se pierde nada). Mejor varias tandas
 // medianas que una gigante.
+//
+// En el CELULAR: deja la pestaña de Sofascore abierta y la pantalla encendida mientras corre.
+// Si la pantalla se apaga o cambias de pestaña/app, Chrome pausa el script y "se queda pegado"
+// (vuelve a seguir al regresar). El script pide que la pantalla no se apague y avisa si pasa.
+// Para cortar y descargar lo que ya tiene: window._sofaParar = true
 
 { // bloque: permite volver a pegar el script sin el error de 'const' repetida
 // ---------- CONFIGURACION ----------
@@ -35,6 +40,17 @@ const DESCARGAR = true;
   const t0 = Date.now();
   const historico = MODO === 'historico';
 
+  // ---------- Celular: pantalla encendida y aviso si la pestaña queda en segundo plano ----------
+  let pantalla = null;
+  const mantenerPantalla = async () => { try { pantalla = await navigator.wakeLock?.request('screen'); } catch { /* sin permiso: sigue igual */ } };
+  const alCambiarVisibilidad = () => {
+    if (document.hidden) log('La pestaña quedó en segundo plano: el navegador la pausa. Vuelve a esta pestaña y deja la pantalla encendida.');
+    else { log('Pestaña visible de nuevo: sigo.'); mantenerPantalla(); }
+  };
+  mantenerPantalla();
+  document.addEventListener('visibilitychange', alCambiarVisibilidad);
+  window._sofaParar = false;
+
   // ---------- Peticiones: cola con limite de simultaneas, ritmo maximo y cache ----------
   const MIN_CONC = 1;
   const MAX_BLOQUEOS_SEGUIDOS = 8; // tantos 429/403 seguidos sin ninguna respuesta buena = bloqueado
@@ -42,13 +58,14 @@ const DESCARGAR = true;
   const intervalo = 1000 / Math.max(1, PETICIONES_POR_SEGUNDO);
   let activos = 0, pausaHasta = 0, proximaSalida = 0, hechas = 0, frenadas = 0, bloqueado = false, seguidos = 0;
   const marcarBloqueado = () => { if (!bloqueado) { bloqueado = true; log('Sofascore sigue bloqueando: paro y descargo lo que ya tengo.'); } };
+  const pedidoParar = () => { if (window._sofaParar && !bloqueado) { bloqueado = true; log('Detenido a pedido: descargo lo que ya tengo.'); } return bloqueado; };
   const cola = [];
   const siguiente = () => { while (activos < limite && cola.length) { activos++; cola.shift()(); } };
   const turno = () => new Promise(r => { cola.push(r); siguiente(); });
   const soltar = () => { activos--; siguiente(); };
   const pedir = async u => {
     for (let intento = 0; intento < 4; intento++) {
-      if (bloqueado) return null;
+      if (pedidoParar()) return null;
       await turno();
       let st = 0;
       try {
@@ -123,7 +140,8 @@ const DESCARGAR = true;
   log(`Encontre ${lista.length} partido(s) ${historico ? 'jugados' : 'por jugar'} en la ventana.`);
   if (lista.length > MAX_PARTIDOS) { log(`Solo proceso ${MAX_PARTIDOS} (cambia MAX_PARTIDOS si quieres mas).`); lista = lista.slice(0, MAX_PARTIDOS); }
   lista.forEach(e => console.log(`  ${fechaLocal(new Date(e.startTimestamp * 1000))} ${horaLocal(new Date(e.startTimestamp * 1000))}  ${e.homeTeam.name} vs ${e.awayTeam.name}  (${e.tournament?.name})`));
-  if (!lista.length || SOLO_LISTAR) return;
+  const soltarCelular = () => { document.removeEventListener('visibilitychange', alCambiarVisibilidad); pantalla?.release().catch(() => {}); };
+  if (!lista.length || SOLO_LISTAR) { soltarCelular(); return; }
 
   // ---------- Helpers ----------
   const statsOf = async id => {
@@ -276,7 +294,14 @@ const DESCARGAR = true;
   // ---------- 3) Procesar (pocos partidos a la vez; la cola limita las peticiones) ----------
   const resultados = new Array(lista.length);
   let siguienteIdx = 0, listos = 0;
-  const progreso = setInterval(() => log(`... ${listos}/${lista.length} partidos, ${hechas} peticiones, ${limite} a la vez, ${Math.round((Date.now() - t0) / 1000)} s`), 10000);
+  let ultimasHechas = -1, quieto = 0;
+  const progreso = setInterval(() => {
+    log(`... ${listos}/${lista.length} partidos, ${hechas} peticiones, ${limite} a la vez, ${Math.round((Date.now() - t0) / 1000)} s`);
+    // sin respuestas nuevas en un minuto (con la pestaña visible): avisa que hacer
+    quieto = hechas === ultimasHechas && !document.hidden ? quieto + 1 : 0;
+    ultimasHechas = hechas;
+    if (quieto === 6) log('Un minuto sin avances. Si sigue asi: window._sofaParar = true (descarga lo que hay) y vuelve a correrlo mas tarde.');
+  }, 10000);
   const trabajador = async () => {
     while (!bloqueado && siguienteIdx < lista.length) {
       const i = siguienteIdx++;
@@ -289,6 +314,7 @@ const DESCARGAR = true;
   };
   await Promise.all(Array.from({ length: Math.max(1, PARTIDOS_A_LA_VEZ) }, trabajador));
   clearInterval(progreso);
+  soltarCelular();
 
   const partidos = resultados.filter(r => r && !r.error);
   const faltan = lista.filter((_, i) => !resultados[i] || resultados[i].error).map(e => `${e.homeTeam.name} vs ${e.awayTeam.name}`);

@@ -278,22 +278,25 @@ Se aplica a los mercados de sí/no (ambos anotan, Over X.5, local anota, visita 
 
 ### 6.6 Valor (`value.js`)
 
+**Antes del valor, la probabilidad se acerca a la casa** (`value.modelWeight`, por grupo de mercado): `prob = peso × modelo + (1 − peso) × casa sin margen`; la devolución (empate no apuesta, hándicap) no se toca. Los pesos salen del historial (5.000 selecciones liquidadas, la mezcla que mejor acierta en cada mercado): en goles y ambos anotan el modelo acierta mejor que la casa; en 1X2, hándicap, corners y tarjetas la casa acierta mejor, así que ahí casi no salen picks. Con esto y la probabilidad mínima de 55 %, en ese historial los picks habrían acertado el 66 % (antes 49 %), con cuota media 1.51 y menos picks (unos 116 en 76 de 129 partidos). Los pesos se ajustaron con ese mismo historial: conviene revisarlos con más partidos. La pestaña Valor, los picks del día, las combinadas, "Más probables" y el historial usan esta probabilidad; Mercados y Explorar muestran la del modelo.
+
 - **Probabilidad justa de la casa:** las implícitas `1/cuota`, normalizadas dentro del mercado. En doble oportunidad suman 2.
 - **Mi probabilidad:** `win / (win + loss)`, sin contar la devolución.
 - **EV** = `win × (cuota − 1) − loss`. **Ventaja** = mi prob − prob justa.
 
 | Nivel | Regla |
 |---|---|
-| Sin valor | EV ≤ 0, **o** prob < 30% (cuotas largas), **o** cuota < 1.15 |
-| Alta | EV ≥ 8% **y** muestra ≥ 8 **y** las fuentes coinciden |
-| Media | EV ≥ 4% |
+| Sin valor | EV ≤ 0, **o** prob < 55% (`value.minProbability`: un pick con valor también debe ser bastante probable), **o** cuota < 1.15, **o** ventaja sospechosa (abajo) |
+| Alta | EV ≥ 5% **y** muestra ≥ 8 **y** las fuentes coinciden |
+| Media | EV ≥ 2.5% |
 | Media-baja | EV > 0 |
 
 **"Las fuentes coinciden":**
 
 - **Goles, ambos anotan, corners y tarjetas:** |modelo − real| ≤ 10 pts. Si no, el nivel se limita a **Media**.
 - **1X2, DC, DNB, primer gol, hándicap y 1X2 del primer tiempo:** |prob. por estadísticas − prob. justa de la casa| ≤ 12 pts. Si no, se limita a **Media-baja**.
-- **Ventaja sospechosa (todos los mercados):** si la prob. propia supera a la justa de la casa en más de 15 pts (`value.maxEdge`), el nivel se limita a **Media-baja**: casi siempre es un error o un dato que falta.
+- **Ventaja sospechosa (todos los mercados):** si la prob. propia supera a la justa de la casa en más de 15 pts (`value.maxEdge`), **no se recomienda**: casi siempre es un error o un dato que falta (típico en Champions, con equipos cuyas estadísticas vienen de ligas de distinto nivel). En el historial, esos picks perdieron todos.
+- **Mejor pick de cada partido** (tarjetas y resumen): el de más confianza y, entre iguales, el de más EV (antes, solo el de más EV).
 
 ### 6.7 Mercados de la fase 3
 
@@ -341,7 +344,8 @@ Un pick por partido, EV > 0, nivel ≥ media, cuota ≥ 1.50 (excepciones en `co
 | `recency.*` | activo, vida media 120 días | Peso por antigüedad |
 | `empirical.priorStrength` / `maxWeight` / `h2hWeight` | 30 / 0.3 / 0.5 | Mezcla con lo empírico |
 | `data.anomalousTotalGoals` / `smallSample` | 12 / 6 | Marcadores de penales, muestra chica |
-| `value.*` | 0.08 / 0.04 / 0.30 / 1.15 / 0.10 / 0.12 / 8 / 0.15 | Niveles de confianza (§6.6) |
+| `value.*` | 0.05 / 0.025 / 0.55 / 1.15 / 0.10 / 0.12 / 8 / 0.15 | Niveles de confianza (§6.6) |
+| `value.modelWeight` | goles 0.7, ambos anotan 0.7, primer gol y 1er tiempo 0.5, 1X2 y hándicap 0.3, tarjetas 0.3, corners 0.2 (otros 0.4) | Peso del modelo frente a la casa al calcular el valor (§6.6) |
 | `schedule.*` | activo, exp. 0.5, 0.5–1.8, ≥ 6 equipos | Ajuste por calendario |
 | `leagues.*` | `config/leagues.js` | Coeficientes, pesos por competición, localía por liga |
 | `absences.*` | activo, reemplazo 0.5, duda 0.5, ≥ 5%, mín. 0.7 | Bajas cuantificadas |
@@ -422,7 +426,7 @@ La página es estática, así que todo se guarda **en el navegador** (IndexedDB,
 
 **Resultados** (flujo semiautomático):
 
-1. Historial → **Copiar script**: la página arma un script con los ids pendientes (hasta 40, `history.maxScriptMatches`). El script (`ui/resultsScriptSource.js`) pide de a una, ~3 por segundo y con 15 s de límite por petición. Si Sofascore responde 429/403 avisa en la consola y espera 10, 20, 30… s; tras 5 bloqueos seguidos para y descarga lo que tiene (`incompleto`, `faltan`). Los que faltan siguen pendientes y salen en el próximo script. `window._sofaParar = true` también corta y descarga. Antes pedía 3 cosas a la vez y, al bloquearse, reintentaba en silencio: parecía trabado con más de 20 partidos.
+1. Historial → **Copiar script**: la página arma un script con los ids pendientes (hasta 40, `history.maxScriptMatches`). El script (`ui/resultsScriptSource.js`) pide de a una, ~3 por segundo y con 15 s de límite por petición. Si Sofascore responde 429/403 avisa en la consola y espera 10, 20, 30… s; tras 5 bloqueos seguidos para y descarga lo que tiene (`incompleto`, `faltan`). Los que faltan siguen pendientes y salen en el próximo script. `window._sofaParar = true` también corta y descarga (igual en el script v5). **En el celular**, Chrome pausa la pestaña si se apaga la pantalla o se cambia de app y el script parece trabado: los dos scripts piden mantener la pantalla encendida (Wake Lock), avisan en la consola cuando la pestaña queda en segundo plano y el v5 avisa tras un minuto sin avances. Antes pedía 3 cosas a la vez y, al bloquearse, reintentaba en silencio: parecía trabado con más de 20 partidos.
 2. Se pega en la consola de sofascore.com. Por cada partido trae estado, marcador a 90' (`normaltime`), descanso, corners, amarillas, primer gol (incidencias) y las últimas cuotas. Descarga `resultados_sofascore_FECHA.json` con `"tipo": "resultados-sofascore"`.
 3. Se sube o pega en el Historial: se **liquida todo lo pendiente** de los partidos terminados. Los no terminados quedan pendientes para el próximo script.
 

@@ -10,6 +10,9 @@
  * si sigue bloqueando, para y descarga lo que ya tiene (los que faltan siguen pendientes en
  * la página y salen en el próximo script). `window._sofaParar = true` también para y descarga.
  *
+ * En el celular, Chrome pausa la pestaña si se apaga la pantalla o se cambia de app: el script
+ * pide mantener la pantalla encendida (Wake Lock) y avisa en la consola si eso pasa.
+ *
  * @param {(string|number)[]} ids
  * @param {string} blockType  "tipo" del JSON que reconoce la página
  */
@@ -30,6 +33,24 @@ export async function sofascoreResultsScript(ids, blockType) {
   let blocked = false;
   window._sofaParar = false;
   const stopped = () => blocked || window._sofaParar === true;
+
+  let screenLock = null;
+  const keepScreenOn = async () => {
+    try {
+      screenLock = await navigator.wakeLock?.request('screen');
+    } catch {
+      // sin permiso: sigue igual
+    }
+  };
+  const onVisibility = () => {
+    if (document.hidden) log('La pestaña quedó en segundo plano: el navegador la pausa. Vuelve a esta pestaña y deja la pantalla encendida.');
+    else {
+      log('Pestaña visible de nuevo: sigo.');
+      keepScreenOn();
+    }
+  };
+  keepScreenOn();
+  document.addEventListener('visibilitychange', onVisibility);
 
   /** Errores de red o sin respuesta que se reintentan; los 429/403 se cuentan aparte (MAX_BLOCKS). */
   const MAX_ERRORS = 3;
@@ -131,6 +152,9 @@ export async function sofascoreResultsScript(ids, blockType) {
     results.push(entry);
   }
 
+  if (window._sofaParar === true) log('Detenido a pedido: descargo lo que ya tengo.');
+  document.removeEventListener('visibilitychange', onVisibility);
+  screenLock?.release().catch(() => {});
   const read = new Set(results.map((result) => result.id));
   const missing = ids.filter((id) => !read.has(id));
   const output = { tipo: blockType, version: 1, generado: new Date().toISOString(), incompleto: missing.length > 0, faltan: missing, partidos: results };

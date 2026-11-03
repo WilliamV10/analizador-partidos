@@ -1,7 +1,13 @@
 /**
  * Valor de cada cuota: probabilidad propia vs. probabilidad justa de la casa,
  * valor esperado (EV) y nivel de confianza.
+ *
+ * La probabilidad propia se acerca a la de la casa antes de calcular el valor
+ * (`value.modelWeight`, por grupo de mercado): cuando el modelo cree mucho más que la casa
+ * suele ser porque se equivoca hacia arriba, y en los mercados donde la casa acierta mejor
+ * (1X2, hándicap, corners, tarjetas) el modelo pesa poco.
  */
+import { marketGroup } from './marketCatalog.js';
 import { fairProbabilities } from './odds.js';
 import { empiricalEvidence, selectionOutcome } from './selections.js';
 
@@ -36,18 +42,20 @@ function baseTier(ev, sample, config) {
  *  - Sin valor si el EV no es positivo, la probabilidad es demasiado baja (cuotas largas)
  *    o la cuota es demasiado corta.
  *  - Si las fuentes no coinciden (gap > maxGap), el nivel se limita a `capWhenInconsistent`.
- *  - Si el modelo se aleja demasiado de la casa (edge > maxEdge) el nivel se limita a bajo:
- *    una diferencia así casi siempre es un error o un dato que falta, no valor real.
+ *  - Si el modelo se aleja demasiado de la casa (edge > maxEdge) no se recomienda: una
+ *    diferencia así casi siempre es un error o un dato que falta (ej. equipos de ligas
+ *    distintas en Champions), no valor real. En el historial, esos picks perdieron.
  * @param {{ ev: number, odds: number, probability: number, edge?: number, gap: number|null, sample: number, maxGap: number, capWhenInconsistent: string }} evidence
  * @param {typeof import('../config.js').CONFIG.value} config
  */
 export function confidenceTier({ ev, odds, probability, edge = 0, gap, sample, maxGap, capWhenInconsistent }, config) {
-  const recommendable = ev > 0 && probability >= config.minProbability && odds >= config.minOdds;
+  // edge: ventaja del modelo SIN acercarlo a la casa (lo que delata un error o un dato que falta).
+  const credible = config.maxEdge === undefined || edge <= config.maxEdge;
+  const recommendable = ev > 0 && probability >= config.minProbability && odds >= config.minOdds && credible;
   if (!recommendable) return TIERS.NONE;
   const tier = baseTier(ev, sample, config);
   const consistent = gap === null || gap <= maxGap;
-  const capped = consistent ? tier : capTier(tier, capWhenInconsistent);
-  return config.maxEdge !== undefined && edge > config.maxEdge ? capTier(capped, TIERS.LOW) : capped;
+  return consistent ? tier : capTier(tier, capWhenInconsistent);
 }
 
 /**
@@ -55,7 +63,8 @@ export function confidenceTier({ ev, odds, probability, edge = 0, gap, sample, m
  * @property {import('./marketCatalog.js').CanonicalMarket} market
  * @property {string} key
  * @property {number} odds
- * @property {number} probability      propia, sin contar devolución
+ * @property {number} probability      propia ya acercada a la casa, sin contar devolución
+ * @property {number} modelProbability la del modelo antes de acercarla a la casa
  * @property {number} fairProbability  de la casa, sin margen
  * @property {number} edge             probability - fairProbability
  * @property {number} ev
@@ -90,31 +99,48 @@ function evidenceFor(market, selection, fairProbability, context) {
   };
 }
 
+/**
+ * Acerca el resultado del modelo a la casa: la parte decidida (gana o pierde) se reparte con
+ * la probabilidad mezclada; la devolución (empate no apuesta, hándicap) queda igual.
+ */
+export function shrinkToMarket(outcome, fairProbability, weight) {
+  const decided = outcome.win + outcome.loss;
+  const probability = weight * winProbability(outcome) + (1 - weight) * fairProbability;
+  return { win: probability * decided, push: outcome.push, loss: (1 - probability) * decided };
+}
+
+function modelWeightFor(market, config) {
+  return config.modelWeight?.[marketGroup(market)] ?? config.defaultModelWeight ?? 1;
+}
+
 function evaluateMarket(market, context) {
   const fair = fairProbabilities(
     market.selections.map((selection) => selection.odds),
     market.fairTotal,
   );
+  const weight = modelWeightFor(market, context.config);
   return market.selections
     .map((selection, index) => {
-      const outcome = selectionOutcome(market, selection.key, context.finalModel);
-      if (!outcome) return null;
+      const modelOutcome = selectionOutcome(market, selection.key, context.finalModel);
+      if (!modelOutcome) return null;
+      const modelProbability = winProbability(modelOutcome);
+      const outcome = shrinkToMarket(modelOutcome, fair[index], weight);
       const probability = winProbability(outcome);
       const ev = expectedValue(outcome, selection.odds);
       const evidence = evidenceFor(market, selection, fair[index], context);
-      const edge = probability - fair[index];
       return {
         market,
         key: selection.key,
         odds: selection.odds,
         probability,
+        modelProbability,
         fairProbability: fair[index],
-        edge,
+        edge: probability - fair[index],
         ev,
         outcome,
         gap: evidence.gap,
         sample: evidence.sample,
-        tier: confidenceTier({ ev, odds: selection.odds, probability, edge, ...evidence }, context.config),
+        tier: confidenceTier({ ev, odds: selection.odds, probability, edge: modelProbability - fair[index], ...evidence }, context.config),
       };
     })
     .filter(Boolean);

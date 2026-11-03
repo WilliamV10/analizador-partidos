@@ -2,13 +2,22 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { CONFIG } from '../js/config.js';
 import { blendWithEmpirical, empiricalRate } from '../js/domain/empirical.js';
-import { TIERS, confidenceTier, expectedValue, winProbability } from '../js/domain/value.js';
+import { TIERS, confidenceTier, expectedValue, shrinkToMarket, winProbability } from '../js/domain/value.js';
 
 describe('expectedValue / winProbability', () => {
   it('la devolución (empate no apuesta) no suma ni resta', () => {
     const outcome = { win: 0.45, push: 0.25, loss: 0.3 };
     assert.ok(Math.abs(expectedValue(outcome, 2) - (0.45 - 0.3)) < 1e-12);
     assert.ok(Math.abs(winProbability(outcome) - 0.6) < 1e-12);
+  });
+});
+
+describe('shrinkToMarket', () => {
+  it('mezcla la probabilidad de ganar con la de la casa y deja igual la devolución', () => {
+    const shrunk = shrinkToMarket({ win: 0.45, push: 0.25, loss: 0.3 }, 0.5, 0.5);
+    assert.ok(Math.abs(winProbability(shrunk) - (0.5 * 0.6 + 0.5 * 0.5)) < 1e-12);
+    assert.equal(shrunk.push, 0.25);
+    assert.ok(Math.abs(shrunk.win + shrunk.loss - 0.75) < 1e-12);
   });
 });
 
@@ -36,9 +45,15 @@ describe('confidenceTier', () => {
     );
   });
 
+  it('sin valor si el modelo se aleja demasiado de la casa o es poco probable', () => {
+    assert.equal(confidenceTier({ ...base, ev: 0.3, edge: CONFIG.value.maxEdge + 0.01 }, CONFIG.value), TIERS.NONE);
+    assert.equal(confidenceTier({ ...base, ev: 0.6, probability: 0.44, odds: 3.75 }, CONFIG.value), TIERS.NONE);
+  });
+
   it('media o media-baja según el EV', () => {
-    assert.equal(confidenceTier({ ...base, ev: 0.05 }, CONFIG.value), TIERS.MEDIUM);
-    assert.equal(confidenceTier({ ...base, ev: 0.01 }, CONFIG.value), TIERS.LOW);
+    const { highEv, mediumEv } = CONFIG.value;
+    assert.equal(confidenceTier({ ...base, ev: (highEv + mediumEv) / 2 }, CONFIG.value), TIERS.MEDIUM);
+    assert.equal(confidenceTier({ ...base, ev: mediumEv / 2 }, CONFIG.value), TIERS.LOW);
   });
 });
 
