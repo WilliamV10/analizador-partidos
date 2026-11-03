@@ -36,18 +36,19 @@ function baseTier(ev, sample, config) {
  *  - Sin valor si el EV no es positivo, la probabilidad es demasiado baja (cuotas largas)
  *    o la cuota es demasiado corta.
  *  - Si las fuentes no coinciden (gap > maxGap), el nivel se limita a `capWhenInconsistent`.
- *  - Si el modelo se aleja demasiado de la casa (edge > maxEdge) el nivel se limita a bajo:
- *    una diferencia así casi siempre es un error o un dato que falta, no valor real.
+ *  - Si el modelo se aleja demasiado de la casa (edge > maxEdge) no se recomienda: una
+ *    diferencia así casi siempre es un error o un dato que falta (ej. equipos de ligas
+ *    distintas en Champions), no valor real. En el historial, esos picks perdieron.
  * @param {{ ev: number, odds: number, probability: number, edge?: number, gap: number|null, sample: number, maxGap: number, capWhenInconsistent: string }} evidence
  * @param {typeof import('../config.js').CONFIG.value} config
  */
 export function confidenceTier({ ev, odds, probability, edge = 0, gap, sample, maxGap, capWhenInconsistent }, config) {
-  const recommendable = ev > 0 && probability >= config.minProbability && odds >= config.minOdds;
+  const credible = config.maxEdge === undefined || edge <= config.maxEdge;
+  const recommendable = ev > 0 && probability >= config.minProbability && odds >= config.minOdds && credible;
   if (!recommendable) return TIERS.NONE;
   const tier = baseTier(ev, sample, config);
   const consistent = gap === null || gap <= maxGap;
-  const capped = consistent ? tier : capTier(tier, capWhenInconsistent);
-  return config.maxEdge !== undefined && edge > config.maxEdge ? capTier(capped, TIERS.LOW) : capped;
+  return consistent ? tier : capTier(tier, capWhenInconsistent);
 }
 
 /**

@@ -284,7 +284,7 @@ Se aplica a los mercados de sí/no (ambos anotan, Over X.5, local anota, visita 
 
 | Nivel | Regla |
 |---|---|
-| Sin valor | EV ≤ 0, **o** prob < 30% (cuotas largas), **o** cuota < 1.15 |
+| Sin valor | EV ≤ 0, **o** prob < 50% (`value.minProbability`: un pick con valor también debe ser más probable que no), **o** cuota < 1.15, **o** ventaja sospechosa (abajo) |
 | Alta | EV ≥ 8% **y** muestra ≥ 8 **y** las fuentes coinciden |
 | Media | EV ≥ 4% |
 | Media-baja | EV > 0 |
@@ -293,7 +293,8 @@ Se aplica a los mercados de sí/no (ambos anotan, Over X.5, local anota, visita 
 
 - **Goles, ambos anotan, corners y tarjetas:** |modelo − real| ≤ 10 pts. Si no, el nivel se limita a **Media**.
 - **1X2, DC, DNB, primer gol, hándicap y 1X2 del primer tiempo:** |prob. por estadísticas − prob. justa de la casa| ≤ 12 pts. Si no, se limita a **Media-baja**.
-- **Ventaja sospechosa (todos los mercados):** si la prob. propia supera a la justa de la casa en más de 15 pts (`value.maxEdge`), el nivel se limita a **Media-baja**: casi siempre es un error o un dato que falta.
+- **Ventaja sospechosa (todos los mercados):** si la prob. propia supera a la justa de la casa en más de 15 pts (`value.maxEdge`), **no se recomienda**: casi siempre es un error o un dato que falta (típico en Champions, con equipos cuyas estadísticas vienen de ligas de distinto nivel). En el historial, esos picks perdieron todos.
+- **Mejor pick de cada partido** (tarjetas y resumen): el de más confianza y, entre iguales, el de más EV (antes, solo el de más EV).
 
 ### 6.7 Mercados de la fase 3
 

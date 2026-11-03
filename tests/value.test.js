@@ -36,6 +36,11 @@ describe('confidenceTier', () => {
     );
   });
 
+  it('sin valor si el modelo se aleja demasiado de la casa o es poco probable', () => {
+    assert.equal(confidenceTier({ ...base, ev: 0.3, edge: CONFIG.value.maxEdge + 0.01 }, CONFIG.value), TIERS.NONE);
+    assert.equal(confidenceTier({ ...base, ev: 0.6, probability: 0.44, odds: 3.75 }, CONFIG.value), TIERS.NONE);
+  });
+
   it('media o media-baja según el EV', () => {
     assert.equal(confidenceTier({ ...base, ev: 0.05 }, CONFIG.value), TIERS.MEDIUM);
     assert.equal(confidenceTier({ ...base, ev: 0.01 }, CONFIG.value), TIERS.LOW);

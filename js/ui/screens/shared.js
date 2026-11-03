@@ -3,7 +3,7 @@
  * pequeñas que se repiten (fila de pick, tarjeta de partido).
  */
 import { ALERT_CODES } from '../../domain/alerts.js';
-import { TIERS } from '../../domain/value.js';
+import { TIERS, TIER_ORDER } from '../../domain/value.js';
 import { TEXTS, marketLabel, pickTitle } from '../../texts.js';
 import { badge, resultBar, resultLegend, selectField, signed, tierBadge } from '../components.js';
 import { h } from '../dom.js';
@@ -15,9 +15,10 @@ export function namesOf(match) {
   return { home: match.home.name, away: match.away.name };
 }
 
-/** @param {MatchAnalysis} analysis */
+/** Mejor pick del partido: el de más confianza y, entre iguales, el de más EV. */
 export function bestPick(analysis) {
-  return analysis.picks.find((pick) => pick.tier !== TIERS.NONE) ?? null;
+  const rank = (pick) => TIER_ORDER.indexOf(pick.tier);
+  return valuePicks(analysis).sort((a, b) => rank(b) - rank(a) || b.ev - a.ev)[0] ?? null;
 }
 
 export function valuePicks(analysis) {

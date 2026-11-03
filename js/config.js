@@ -77,8 +77,11 @@ export const CONFIG = deepFreeze({
   value: {
     highEv: 0.08,
     mediumEv: 0.04,
-    /** Por debajo de esta probabilidad no se recomienda (cuotas largas: el error del modelo pesa demasiado). */
-    minProbability: 0.3,
+    /**
+     * Por debajo de esta probabilidad no se recomienda: un pick con valor también debe ser
+     * más probable que no (con cuotas largas el error del modelo pesa demasiado).
+     */
+    minProbability: 0.5,
     /** Por debajo de esta cuota no se recomienda (no compensa el riesgo). */
     minOdds: 1.15,
     /** Diferencia máxima modelo vs. realidad para que un pick pueda ser de confianza alta. */
@@ -87,7 +90,7 @@ export const CONFIG = deepFreeze({
     maxStatsMarketGap: 0.12,
     /** Muestra mínima para confianza alta. */
     minSampleHigh: 8,
-    /** Ventaja máxima creíble sobre la casa (probabilidad propia − justa). Más que esto = nivel bajo. */
+    /** Ventaja máxima creíble sobre la casa (probabilidad propia − justa). Más que esto = no se recomienda. */
     maxEdge: 0.15,
   },
   schedule: {
