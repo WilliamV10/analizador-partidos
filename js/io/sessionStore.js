@@ -40,6 +40,7 @@ async function run(mode, operate) {
  * @property {{ name: string, text: string }[]} sources
  * @property {string} mode
  * @property {string|null} contextText  bloque de Claude aplicado (texto pegado)
+ * @property {string[]} [finishedIds]   partidos que ya terminaron (se quitan al restaurar)
  * @property {number} savedAt
  */
 
@@ -66,6 +67,12 @@ export async function saveSession(session) {
 export async function saveSessionContext(contextText) {
   const session = await loadSession();
   if (session) await saveSession({ ...session, contextText });
+}
+
+/** Suma partidos terminados a la sesión guardada (no vuelven a aparecer al restaurarla). */
+export async function saveSessionFinished(ids) {
+  const session = await loadSession();
+  if (session) await saveSession({ ...session, finishedIds: [...new Set([...(session.finishedIds ?? []), ...ids])] });
 }
 
 export async function clearSession() {

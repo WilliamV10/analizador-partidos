@@ -246,6 +246,8 @@ export const CONFIG = deepFreeze({
       playerShotsOnTarget: 4,
       playerShots: 6,
     },
+    /** Partidos recientes de cada equipo en la gráfica de goles de Explorar. */
+    teamGoalsMatches: 10,
     /** Jugadores a la vista en el ranking de Explorar (el resto con "Ver más"). */
     playersShown: 25,
   },

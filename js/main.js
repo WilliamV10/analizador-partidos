@@ -15,7 +15,7 @@ import { PERFORMANCE_MODES } from './domain/performance.js';
 import { openHistoryStore } from './io/historyDb.js';
 import { ImportError } from './io/importError.js';
 import { readTextFiles } from './io/fileReader.js';
-import { clearSession, loadSession, saveSession, saveSessionContext } from './io/sessionStore.js';
+import { clearSession, loadSession, saveSession, saveSessionContext, saveSessionFinished } from './io/sessionStore.js';
 import { TEXTS } from './texts.js';
 import { bindBetDialog } from './ui/betDialog.js';
 import { buildClaudePrompt } from './ui/claudePrompt.js';
@@ -87,6 +87,7 @@ const historyController = createHistoryController({
   history: createHistory(await openHistoryStore()),
   store,
   betDialog: bindBetDialog(document.getElementById('bet-dialog'), { defaultStake: CONFIG.history.defaultStake }),
+  onMatchesFinished: (ids) => removeFinishedMatches(ids),
 });
 
 /* ---------- Utilidades de interfaz ---------- */
@@ -138,9 +139,39 @@ function reanalyze(changes) {
   return analyze({ matches, config, contexts, disabledContexts, ...changes });
 }
 
+/**
+ * Quita de los analizados los partidos que ya terminaron (al cargar resultados): ya se
+ * liquidaron en el historial y no sirven para apostar. La sesión guardada los recuerda.
+ */
+function removeFinishedMatches(ids) {
+  const finished = new Set(ids);
+  const state = store.getState();
+  const matches = state.matches.filter((match) => !finished.has(match.id));
+  const removed = state.matches.length - matches.length;
+  if (!removed) return;
+  saveSessionFinished(ids);
+  if (!matches.length) {
+    store.setState({ ...EMPTY_RESULTS });
+    clearSession();
+    clearContextInput();
+    toast(TEXTS.app.finishedRemovedAll(removed));
+    return;
+  }
+  const analyses = state.analyses.filter((analysis) => !finished.has(analysis.match.id));
+  const kept = new Set(matches.map((match) => match.id));
+  store.setState({
+    matches,
+    analyses,
+    comboKeys: state.comboKeys.filter((key) => kept.has(key.split('|')[0])),
+    selectedId: kept.has(state.selectedId) ? state.selectedId : (matches[0]?.id ?? null),
+  });
+  toast(TEXTS.app.finishedRemoved(removed, matches.length));
+}
+
 /** Importa y analiza los JSON; devuelve los análisis (lanza si los datos no sirven). */
-function loadSources(sources, mode, contexts = []) {
-  const matches = importMatches(sources, mode);
+function loadSources(sources, mode, contexts = [], finishedIds = []) {
+  const finished = new Set(finishedIds);
+  const matches = importMatches(sources, mode).filter((match) => !finished.has(match.id));
   return analyze({
     matches,
     config: store.getState().config,
@@ -308,7 +339,12 @@ async function restoreSession() {
   if (!session) return;
   try {
     const contexts = session.contextText ? importContext(session.contextText, TEXTS.context.title) : [];
-    const analyses = loadSources(session.sources, session.mode, contexts);
+    const analyses = loadSources(session.sources, session.mode, contexts, session.finishedIds);
+    if (!analyses.length) {
+      store.setState({ ...EMPTY_RESULTS });
+      clearSession();
+      return;
+    }
     toast(TEXTS.loader.restored(analyses.length, session.savedAt));
   } catch {
     store.setState({ ...EMPTY_RESULTS });

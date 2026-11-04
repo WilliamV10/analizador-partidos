@@ -21,8 +21,9 @@ function describeError(error) {
  * @param {ReturnType<typeof import('../app/history.js').createHistory>} deps.history
  * @param {ReturnType<typeof import('./store.js').createStore>} deps.store
  * @param {ReturnType<typeof import('./betDialog.js').bindBetDialog>} deps.betDialog
+ * @param {(ids: string[]) => void} [deps.onMatchesFinished]  ids de los partidos terminados al cargar resultados
  */
-export function createHistoryController({ history, store, betDialog }) {
+export function createHistoryController({ history, store, betDialog, onMatchesFinished = () => {} }) {
   const config = () => store.getState().config.history;
 
   /** Vuelca los registros al estado (y un mensaje opcional para la vista). */
@@ -69,7 +70,9 @@ export function createHistoryController({ history, store, betDialog }) {
   async function settleTexts(sources) {
     const results = sources.flatMap((source) => importResults(source.text, source.name));
     const settled = await history.settle(results);
-    const finished = results.filter((result) => result.finished).length;
+    const finishedIds = results.filter((result) => result.finished).map((result) => result.id);
+    onMatchesFinished(finishedIds);
+    const finished = finishedIds.length;
     return settled
       ? success(TEXTS.history.settledNow(settled, finished, results.length))
       : { message: TEXTS.history.nothingSettled, kind: 'error' };

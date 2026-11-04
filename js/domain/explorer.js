@@ -178,3 +178,24 @@ export function playerRanking(analyses, statId, value) {
     )
     .sort((a, b) => b.probability - a.probability || b.expected - a.expected);
 }
+
+/**
+ * Goles de un equipo en sus últimos partidos (competición del partido y la otra, sin
+ * repetir), del más viejo al más reciente: para ver cómo viene anotando.
+ * @param {import('../types.js').Team} team
+ * @param {number} count
+ * @returns {import('../types.js').TeamMatchRow[]}
+ */
+export function recentGoals(team, count) {
+  const seen = new Set();
+  return [...team.current, ...team.other]
+    .filter((row) => {
+      const key = `${row.date}|${row.opponent}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')))
+    .slice(0, count)
+    .reverse();
+}
