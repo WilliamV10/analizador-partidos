@@ -379,6 +379,13 @@ export const TEXTS = Object.freeze({
     noneForFilter: 'Ningún partido con ese filtro.',
     noPick: 'Sin picks con valor',
     bestPicks: 'Mejores picks del día',
+    confidentForecasts: 'Pronósticos con confianza',
+    noConfidentForecasts: (min) => `Ningún pronóstico llega a ${min} en estos partidos.`,
+    confidentNote: (min) =>
+      `Lo más probable de ganador, ambos anotan y más/menos 2.5 cuando el modelo le da ${min} o más, haya valor o no. ` +
+      'En el historial, el ganador con 65 % o más acertó 14 de 15; mira su acierto real en Historial → Pronósticos.',
+    moreForecasts: (count, rest) => moreOf(count, rest),
+    fairOdds: (value) => `justa ${value}`,
     noPicksForMode: 'Ningún pick cumple este criterio.',
     versus: 'vs',
     buildCombo: 'Armar combinada con estos picks',

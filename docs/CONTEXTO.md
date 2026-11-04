@@ -222,6 +222,7 @@ docs/CONTEXTO.md    este archivo
   - **Más probables:** lo más probable de los mercados populares (`config.probable.markets`: ganador, doble oportunidad, empate no apuesta, ambos anotan, goles 1.5/2.5/3.5, hándicap asiático, corners, tarjetas), haya valor o no. Reglas: cuota mínima por selección (1.20 por defecto, para que no entren cuotas regaladas), probabilidad mínima (55 %) y un pick por partido; un desplegable filtra por mercado. Las sugeridas son las combinadas de mayor probabilidad con cuota total ≥ 1.8. Se muestra el EV para ver cuándo lo probable paga poco.
 - **Filtro por liga:** si los partidos cargados son de más de una liga, Día, Combinada y Explorar muestran un desplegable "Liga" (uno solo para las tres, `state.league`; `inLeague`/`leagueSelect` en `screens/shared.js`). En la Combinada filtra candidatos y sugeridas; las selecciones ya elegidas de otra liga se mantienen. Con más de 3 ligas, el encabezado dice "N ligas".
 - **Rendimiento con muchos partidos:** cada análisis se recuerda por partido (`app/analyzeMatches.js`) y solo se rehace si cambia la configuración o su bloque de contexto; el historial solo guarda los análisis nuevos y, si nada cambió, no redibuja. Las listas largas (picks elegibles, jugadores) se dibujan de a tandas con "Ver más" (`growingList` en `components.js`).
+- **Día → Pronósticos con confianza:** lo más probable de ganador, ambos anotan y más/menos 2.5 de cada partido cuando la probabilidad llega a `config.forecasts.confidentProbability` (65 %), con la misma probabilidad que se guarda en el historial (`matchForecasts` / `confidentForecasts` en `domain/history.js`). En el historial, el ganador con 65 % o más acertó 14 de 15.
 - **Día:** "Mejores picks del día" se puede ver por valor o por probabilidad (con el mismo desplegable de mercado), y "Armar combinada" abre la Combinada en ese criterio.
 - **Contexto:** se puede copiar solo los partidos "por revisar" (alerta de divergencia) y desactivar el ajuste de cada partido con su casilla.
 - **Historial:** pantalla aparte, disponible aunque no haya partidos cargados (ver §9 bis). `io/historyDb.js` guarda en IndexedDB.
@@ -345,6 +346,7 @@ Un pick por partido, EV > 0, nivel ≥ media, cuota ≥ 1.50 (excepciones en `co
 | `empirical.priorStrength` / `maxWeight` / `h2hWeight` | 30 / 0.3 / 0.5 | Mezcla con lo empírico |
 | `data.anomalousTotalGoals` / `smallSample` | 12 / 6 | Marcadores de penales, muestra chica |
 | `value.*` | 0.05 / 0.025 / 0.55 / 1.15 / 0.10 / 0.12 / 8 / 0.15 | Niveles de confianza (§6.6) |
+| `value.towardHalf` | ambos anotan 0.6 | Acerca la probabilidad al 50 % después de mezclar con la casa: en ambos anotan, modelo y casa se pasaban de seguros (lo de 65 % pasó ~55 %) |
 | `value.modelWeight` | goles 0.7, ambos anotan 0.7, primer gol y 1er tiempo 0.5, 1X2 y hándicap 0.3, tarjetas 0.3, corners 0.2 (otros 0.4) | Peso del modelo frente a la casa al calcular el valor (§6.6) |
 | `schedule.*` | activo, exp. 0.5, 0.5–1.8, ≥ 6 equipos | Ajuste por calendario |
 | `leagues.*` | `config/leagues.js` | Coeficientes, pesos por competición, localía por liga |
