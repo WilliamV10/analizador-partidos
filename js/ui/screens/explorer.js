@@ -19,13 +19,16 @@ import {
   isBinaryStat,
   isPlayerStat,
   playerRanking,
-  recentGoals,
+  TEAM_SERIES,
+  recentMatches,
   statDistribution,
   valueProbabilities,
 } from '../../domain/explorer.js';
 import { TEXTS } from '../../texts.js';
 import { card, chips, emptyState, growingList, iconButton, kvList, note, pageHead, segmented, selectField, stats, teamShort } from '../components.js';
 import { h, replaceContent } from '../dom.js';
+import { expandOnClick, playerShotsChart } from '../playerChart.js';
+import { recentChart } from '../recentChart.js';
 import { EMPTY, decimal, odds, percent } from '../formatters.js';
 import { inLeague, leagueSelect, namesOf, tournamentLine } from './shared.js';
 
@@ -82,45 +85,66 @@ function quoteRows(analysis, stat, value, probabilities) {
   ].filter(Boolean);
 }
 
-/**
- * Barras con los goles de un equipo en cada partido reciente. Se resaltan los partidos en
- * que anotó al menos `threshold` (el valor del deslizador si la estadística es de ese equipo).
- */
-function teamGoalsCard(team, rows, threshold) {
-  if (!rows.length) return null;
-  const top = Math.max(...rows.map((row) => row.goalsFor), 1);
-  const scored = rows.filter((row) => row.goalsFor >= threshold).length;
-  const average = rows.reduce((sum, row) => sum + row.goalsFor, 0) / rows.length;
-  return card(
-    { label: TEXTS.explorer.teamGoalsTitle(team.name, rows.length) },
-    h(
-      'div',
-      { class: 'dist dist--team', role: 'img', 'aria-label': TEXTS.explorer.teamGoalsLabel(team.name) },
-      rows.map((row) =>
-        h(
-          'div',
-          {
-            class: `dist__column${row.goalsFor >= threshold ? ' is-over' : ''}`,
-            title: TEXTS.explorer.teamGoalsRow(row.date, row.isHome, row.opponent, row.goalsFor, row.goalsAgainst),
-          },
-          h('span', { class: 'dist__value' }, row.goalsFor),
-          h('span', { class: 'dist__bar', style: `height:${((row.goalsFor / top) * 100).toFixed(1)}%` }),
-          h('span', { class: 'dist__label' }, `${row.isHome ? TEXTS.explorer.homeShort : TEXTS.explorer.awayShort} ${teamShort(row.opponent)}`),
-        ),
-      ),
-    ),
-    h('p', { class: 'note' }, TEXTS.explorer.teamGoalsSummary(decimal(average, 1), scored, rows.length, threshold)),
-  );
+/** Otras estadísticas que se muestran en el detalle de cada partido de un equipo. */
+const DETAIL_STATS = ['shots', 'shotsOnTarget', 'corners', 'yellows', 'possession', 'xg'];
+
+const outcomeOf = (row) => (row.goalsFor > row.goalsAgainst ? 'win' : row.goalsFor === row.goalsAgainst ? 'draw' : 'loss');
+
+/** Detalle de un partido de un equipo: rival, condición, resultado y lo hecho y concedido. */
+function teamRowDetail(row, stat, series) {
+  const names = TEXTS.recentChart.statNames;
+  const pairText = (mine, theirs, format = TEXTS.recentChart.forAgainst) => (mine === null || mine === undefined ? EMPTY : format(mine, theirs));
+  return [
+    [TEXTS.recentChart.date, row.date ?? EMPTY],
+    [TEXTS.recentChart.competition, row.competition ?? EMPTY],
+    [TEXTS.recentChart.opponent, TEXTS.recentChart.opponentValue(row.opponent, row.isHome)],
+    [TEXTS.recentChart.result, TEXTS.recentChart.resultValue(row.goalsFor, row.goalsAgainst, outcomeOf(row))],
+    [h('strong', {}, names[stat.source]), h('strong', {}, pairText(series.for(row), series.against(row)))],
+    row.htGoalsFor !== null && stat.source !== 'halfTime' ? [names.halfTime, pairText(row.htGoalsFor, row.htGoalsAgainst, TEXTS.recentChart.vsRival)] : null,
+    ...DETAIL_STATS.filter((key) => key !== stat.source && row.stats[key]).map((key) => [
+      names[key],
+      pairText(row.stats[key].for, row.stats[key].against, TEXTS.recentChart.vsRival),
+    ]),
+  ].filter(Boolean);
 }
 
-/** Gráficas de goles de los dos equipos (solo en goles de un partido). */
-function teamGoalsCharts(analysis, stat, value, count) {
-  const { home, away } = analysis.match;
-  const thresholdFor = (side) => (stat.side === side ? Math.max(1, value) : 1);
-  return [
-    teamGoalsCard(home, recentGoals(home, count), thresholdFor('home')),
-    teamGoalsCard(away, recentGoals(away, count), thresholdFor('away')),
-  ];
+/**
+ * Gráficas de los dos equipos para la estadística elegida: lo que hicieron en cada partido
+ * reciente, con filtro local/visita y detalle al tocar. Se resaltan los partidos que llegan al
+ * valor del deslizador si la estadística es de ese equipo (en goles totales, los que anotó).
+ * @returns {{ node: Node, refresh: () => void }[]}
+ */
+function teamCharts(analysis, stat, currentValue) {
+  const series = TEAM_SERIES[stat.source];
+  if (!series) return [];
+  const unit = unitOf(stat);
+  const count = analysis.config.explorer.teamGoalsMatches;
+  const thresholdFor = (side) => () => {
+    if (stat.side === side) return currentValue();
+    return stat.source === 'goals' ? 1 : null;
+  };
+  return ['home', 'away']
+    .map((side) => {
+      const team = analysis.match[side];
+      const limit = thresholdFor(side);
+      return recentChart({
+        title: TEXTS.recentChart.teamTitle(TEXTS.recentChart.statNames[stat.source], team.name),
+        rows: recentMatches(team, count),
+        value: series.for,
+        threshold: limit,
+        detail: (row) => teamRowDetail(row, stat, series),
+        summary: (rows) => {
+          const average = (read) => {
+            const values = rows.map(read).filter((amount) => amount !== null && amount !== undefined);
+            return values.length ? decimal(values.reduce((sum, amount) => sum + amount, 0) / values.length, 1) : EMPTY;
+          };
+          const threshold = limit();
+          const reached = threshold === null ? null : rows.filter((row) => series.for(row) >= threshold).length;
+          return TEXTS.recentChart.teamSummary(average(series.for), average(series.against), rows.length, threshold, reached, unit);
+        },
+      });
+    })
+    .filter(Boolean);
 }
 
 function matchResults(analysis, stat, value, max) {
@@ -143,7 +167,6 @@ function matchResults(analysis, stat, value, max) {
       distributionChart(distribution, value, max),
       kvList([[TEXTS.explorer.expected, decimal(distributionMean(distribution), 2)], ...quotes]),
     ),
-    stat.group === 'goals' ? teamGoalsCharts(analysis, stat, value, analysis.config.explorer.teamGoalsMatches) : null,
   ];
 }
 
@@ -271,33 +294,35 @@ function bttsAllResults(analyses, onOpen) {
 
 /* ---------- Jugadores ---------- */
 
-function playerRow({ analysis, side, projection, expected, probability }, index, onOpen) {
+/** Fila del ranking de jugadores: al tocarla se abre la gráfica de sus remates por partido. */
+function playerRow({ analysis, side, projection, expected, probability }, index, onOpen, stat, value) {
   const team = namesOf(analysis.match)[side];
-  return h(
-    'li',
-    {},
+  const trigger = h(
+    'button',
+    { type: 'button', class: 'rank-item' },
+    h('span', { class: 'rank-item__index' }, index + 1),
     h(
-      'button',
-      { type: 'button', class: 'rank-item', onClick: () => onOpen(analysis.match.id) },
-      h('span', { class: 'rank-item__index' }, index + 1),
+      'span',
+      { class: 'rank-item__text' },
+      h('span', { class: 'rank-item__title' }, TEXTS.explorer.playerTitle(projection.name, team)),
       h(
         'span',
-        { class: 'rank-item__text' },
-        h('span', { class: 'rank-item__title' }, TEXTS.explorer.playerTitle(projection.name, team)),
-        h(
-          'span',
-          { class: 'rank-item__sub' },
-          TEXTS.explorer.playerDetail(analysis.match.title, TEXTS.playerStatus[projection.status], decimal(expected, 2)),
-        ),
-      ),
-      h(
-        'span',
-        { class: 'rank-item__side' },
-        h('strong', { class: 'stat__value stat__value--sm tone-accent' }, percent(probability)),
-        h('span', { class: 'muted' }, TEXTS.explorer.fair(fairOdds(probability))),
+        { class: 'rank-item__sub' },
+        TEXTS.explorer.playerDetail(analysis.match.title, TEXTS.playerStatus[projection.status], decimal(expected, 2)),
       ),
     ),
+    h(
+      'span',
+      { class: 'rank-item__side' },
+      h('strong', { class: 'stat__value stat__value--sm tone-accent' }, percent(probability)),
+      h('span', { class: 'muted' }, TEXTS.explorer.fair(fairOdds(probability))),
+    ),
   );
+  const panel = expandOnClick(trigger, () => [
+    playerShotsChart(projection, { kind: stat.field, threshold: () => value }),
+    h('button', { type: 'button', class: 'link', onClick: () => onOpen(analysis.match.id) }, TEXTS.explorer.openPlayersTab),
+  ]);
+  return h('li', {}, trigger, panel);
 }
 
 function playerResults(analyses, stat, value, config, onOpen) {
@@ -307,7 +332,7 @@ function playerResults(analyses, stat, value, config, onOpen) {
     note(TEXTS.explorer.playersHint(value, unitOf(stat))),
     growingList({
       items: rows,
-      render: (row, index) => playerRow(row, index, onOpen),
+      render: (row, index) => playerRow(row, index, onOpen, stat, value),
       first: config.explorer.playersShown,
       batch: config.explorer.playersShown,
       tag: 'ol',
@@ -383,7 +408,13 @@ export function renderExplorer(state, actions) {
   const initial = binary ? 0 : Math.max(min, Math.min(max, state.explorerValue ?? suggested));
 
   const results = h('div', { class: 'stack', 'aria-live': 'polite' });
+  // Gráficas de cada equipo: fuera de `results` para que el deslizador no les borre el filtro
+  // ni la barra elegida; solo se vuelven a dibujar con el nuevo umbral.
+  let currentValue = initial;
+  const charts = scope === EXPLORER_SCOPES.MATCH && !binary && !players ? teamCharts(analysis, stat, () => currentValue) : [];
   const draw = (value) => {
+    currentValue = value;
+    charts.forEach((chart) => chart.refresh());
     if (players) {
       replaceContent(results, playerResults(pool, stat, value, state.config, actions.openMatchPlayers));
       return;
@@ -442,7 +473,7 @@ export function renderExplorer(state, actions) {
           : null,
         binary ? null : sliderCard({ value: initial, min, max, unit, onPreview: draw, onCommit: actions.setExplorerValue }),
       ),
-      results,
+      h('div', { class: 'stack' }, results, charts.map((chart) => chart.node)),
     ),
     note(TEXTS.explorer.method),
   ];

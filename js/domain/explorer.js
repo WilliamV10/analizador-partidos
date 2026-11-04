@@ -180,13 +180,13 @@ export function playerRanking(analyses, statId, value) {
 }
 
 /**
- * Goles de un equipo en sus últimos partidos (competición del partido y la otra, sin
- * repetir), del más viejo al más reciente: para ver cómo viene anotando.
+ * Últimos partidos de un equipo (competición del partido y la otra, sin repetir), del más
+ * viejo al más reciente: para las gráficas de cada equipo en Explorar.
  * @param {import('../types.js').Team} team
  * @param {number} count
  * @returns {import('../types.js').TeamMatchRow[]}
  */
-export function recentGoals(team, count) {
+export function recentMatches(team, count) {
   const seen = new Set();
   return [...team.current, ...team.other]
     .filter((row) => {
@@ -199,3 +199,22 @@ export function recentGoals(team, count) {
     .slice(0, count)
     .reverse();
 }
+
+const statPair = (key) => ({
+  for: (row) => row.stats[key]?.for ?? null,
+  against: (row) => row.stats[key]?.against ?? null,
+});
+
+/**
+ * Qué se grafica de cada partido de un equipo según la fuente de la estadística:
+ * lo del equipo (`for`) y lo del rival en ese partido (`against`, lo que concedió).
+ */
+export const TEAM_SERIES = Object.freeze({
+  goals: { for: (row) => row.goalsFor, against: (row) => row.goalsAgainst },
+  halfTime: { for: (row) => row.htGoalsFor, against: (row) => row.htGoalsAgainst },
+  corners: statPair('corners'),
+  cornersFirstHalf: statPair('cornersFirstHalf'),
+  yellows: statPair('yellows'),
+  shots: statPair('shots'),
+  shotsOnTarget: statPair('shotsOnTarget'),
+});

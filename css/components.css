@@ -2360,3 +2360,77 @@
   font-size: var(--text-xs);
   color: var(--faint);
 }
+
+/* Barras que se pueden tocar (gráficas de equipo y de jugador). */
+.dist__column--button {
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dist__column--button:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+.recent-detail {
+  padding: var(--space-3);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+/* Fila de jugador que se toca para abrir su gráfica. */
+.player-row--button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.expand-panel {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.rank-list .expand-panel {
+  margin: 0 var(--space-3) var(--space-3);
+}
+
+/* Dentro de una tarjeta, los chips del filtro no sangran a los costados. */
+.recent-chart__filters .chips {
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+}
+
+/* En la pestaña Jugadores la gráfica va dentro de la tarjeta del jugador: sin otra tarjeta alrededor. */
+.player-item .expand-panel > * > .card {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* Badges del encabezado del partido: textos largos (ej. el árbitro con su historial) se parten
+   en varias líneas en vez de salirse de la pantalla del celular. */
+.match-head__badges {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.match-head__badges .badge {
+  flex: 0 1 auto;
+  max-width: 100%;
+  padding-block: 3px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}

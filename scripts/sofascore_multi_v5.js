@@ -30,6 +30,7 @@ const PARTIDOS_LIGA = 8;        // ultimos partidos de la liga local de cada equ
 const PETICIONES_A_LA_VEZ = 4;  // peticiones simultaneas (se ajusta solo hacia abajo si Sofascore frena)
 const PETICIONES_POR_SEGUNDO = 6; // ritmo maximo: subirlo acelera pero arriesga el bloqueo
 const PARTIDOS_A_LA_VEZ = 2;    // partidos que se procesan en paralelo
+const PARTIDOS_POR_JUGADOR = 10; // partidos recientes de cada jugador (remates por partido para la grafica)
 const SOLO_LISTAR = false;      // true = solo muestra que partidos encontraria
 const DESCARGAR = true;
 
@@ -223,16 +224,25 @@ const DESCARGAR = true;
       }
       const conJug = async e => {
         const [m, l] = await Promise.all([fmtMatch(e, tid), g(`event/${e.id}/lineups`)]);
-        return { m, side: e.homeTeam.id === tid ? l?.home : l?.away };
+        return { m, e, side: e.homeTeam.id === tid ? l?.home : l?.away };
       };
       const [rActual, rLiga, partidosTempPasada] = await Promise.all([
         Promise.all(actual.map(conJug)), Promise.all(ligaEvs.map(conJug)),
         Promise.all(pasada.map(e => fmtMatch(e, tid)))
       ]);
       const jug = {};
-      for (const { side } of [...rActual, ...rLiga]) for (const p of side?.players || []) {
+      // partidos de cada jugador: [fecha, rival, 'L'|'V', resultado, minutos, remates, a puerta, goles]
+      const recientes = [...rActual, ...rLiga].sort((a, b) => b.e.startTimestamp - a.e.startTimestamp);
+      for (const { side, e } of recientes) for (const p of side?.players || []) {
         const q = p.statistics || {}; if (!q.minutesPlayed) continue;
-        const z = jug[p.player.id] ||= { nombre: p.player.name, pj: 0, titular: 0, min: 0, tirosPuerta: 0, tiros: 0, goles: 0, xG: 0, asist: 0 };
+        const z = jug[p.player.id] ||= { nombre: p.player.name, pj: 0, titular: 0, min: 0, tirosPuerta: 0, tiros: 0, goles: 0, xG: 0, asist: 0, partidos: [] };
+        const local = e.homeTeam.id === tid;
+        if (z.partidos.length < PARTIDOS_POR_JUGADOR) z.partidos.push([
+          fechaLocal(new Date(e.startTimestamp * 1000)), local ? e.awayTeam.name : e.homeTeam.name, local ? 'L' : 'V',
+          local ? `${e.homeScore.current}-${e.awayScore.current}` : `${e.awayScore.current}-${e.homeScore.current}`,
+          q.minutesPlayed, (q.onTargetScoringAttempt || 0) + (q.shotOffTarget || 0) + (q.blockedScoringAttempt || 0),
+          q.onTargetScoringAttempt || 0, q.goals || 0
+        ]);
         z.pj++; if (!p.substitute) z.titular++; z.min += q.minutesPlayed;
         z.tirosPuerta += q.onTargetScoringAttempt || 0;
         z.tiros += (q.onTargetScoringAttempt || 0) + (q.shotOffTarget || 0) + (q.blockedScoringAttempt || 0);

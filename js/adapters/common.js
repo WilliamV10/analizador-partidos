@@ -50,6 +50,26 @@ export function parsePlayer(raw) {
     goals: toNumber(raw.goles),
     xg: raw.xG === undefined || raw.xG === null ? null : toNumber(raw.xG, null),
     assists: toNumber(raw.asist),
+    matches: Array.isArray(raw.partidos) ? raw.partidos.map(parsePlayerMatch).filter(Boolean) : [],
+  };
+}
+
+/**
+ * Un partido de un jugador: [fecha, rival, 'L'|'V', resultado, minutos, remates, a puerta, goles].
+ * @returns {import('../types.js').PlayerMatch|null}
+ */
+function parsePlayerMatch(raw) {
+  if (!Array.isArray(raw) || raw.length < 8) return null;
+  const [date, opponent, condition, score, minutes, shots, shotsOnTarget, goals] = raw;
+  return {
+    date: date ? String(date) : null,
+    opponent: String(opponent ?? ''),
+    isHome: condition === 'L',
+    score: score ? String(score) : null,
+    minutes: toNumber(minutes),
+    shots: toNumber(shots),
+    shotsOnTarget: toNumber(shotsOnTarget),
+    goals: toNumber(goals),
   };
 }
 

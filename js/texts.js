@@ -10,6 +10,43 @@ const moreOf = (count, rest) => (count < rest ? `Ver ${count} más (quedan ${res
 const TIER_NAMES = { high: 'Alta', medium: 'Media', low: 'Media-baja', none: 'Sin valor' };
 
 export const TEXTS = Object.freeze({
+  recentChart: {
+    sides: { all: 'Todos', home: 'De local', away: 'De visita' },
+    sideLabel: 'Filtrar por condición',
+    tapHint: 'Toca una barra para ver el detalle del partido. A la derecha, el más reciente.',
+    noneForSide: 'Sin partidos con esa condición.',
+    barLabel: (opponent, value) => `vs ${opponent}: ${value}`,
+    teamTitle: (stat, team) => `${stat} de ${team}`,
+    playerTitle: (stat, player) => `${stat} de ${player}`,
+    statNames: {
+      goals: 'Goles',
+      halfTime: 'Goles 1er tiempo',
+      corners: 'Corners',
+      cornersFirstHalf: 'Corners 1er tiempo',
+      yellows: 'Amarillas',
+      shots: 'Remates',
+      shotsOnTarget: 'Remates a puerta',
+      possession: 'Posesión',
+      xg: 'xG',
+    },
+    date: 'Fecha',
+    competition: 'Competición',
+    opponent: 'Rival',
+    opponentValue: (opponent, isHome) => `${opponent} (${isHome ? 'de local' : 'de visita'})`,
+    result: 'Resultado',
+    resultValue: (goalsFor, goalsAgainst, outcome) => `${goalsFor}-${goalsAgainst} · ${{ win: 'ganó', draw: 'empató', loss: 'perdió' }[outcome]}`,
+    forAgainst: (mine, theirs) => `${mine} ${plural(mine, 'hecho', 'hechos')} · ${theirs ?? '—'} ${plural(theirs, 'concedido', 'concedidos')}`,
+    vsRival: (mine, theirs) => `${mine} · rival ${theirs ?? '—'}`,
+    minutes: 'Minutos',
+    goals: 'Goles',
+    shotKindLabel: 'Tipo de remate',
+    noPlayerMatches: 'Este JSON no trae sus partidos uno por uno: vuelve a descargarlo con el script nuevo (v5 o el de un partido).',
+    playerSummary: (average, per90, threshold, reached, count) =>
+      `Promedio ${average} por partido (${per90} por 90') · ${threshold} o más en ${reached} de ${count}.`,
+    teamSummary: (forAvg, againstAvg, count, threshold, reached, [singular, pluralForm]) =>
+      `Promedio ${forAvg} hechos y ${againstAvg} concedidos por partido (${count} ${plural(count, 'partido', 'partidos')})` +
+      (threshold === null ? '.' : ` · ${threshold} ${plural(threshold, singular, pluralForm)} o más en ${reached} de ${count}.`),
+  },
   leagues: {
     label: 'Liga',
     all: (count) => `Todas las ligas · ${count}`,
@@ -237,21 +274,15 @@ export const TEXTS = Object.freeze({
       players: 'Jugadores · remates',
     },
     playerStats: { shotsOnTarget: 'A puerta', shots: 'Remates totales' },
-    teamGoalsTitle: (team, count) => `Goles de ${team} · últimos ${count}`,
-    teamGoalsLabel: (team) => `Goles anotados por ${team} en cada partido reciente, del más viejo al más nuevo`,
-    teamGoalsRow: (date, isHome, opponent, goalsFor, goalsAgainst) =>
-      `${date ?? ''} · ${isHome ? 'local' : 'visita'} vs ${opponent}: ${goalsFor}-${goalsAgainst}`,
-    teamGoalsSummary: (average, scored, total, threshold) =>
-      `Promedio ${average} por partido · ${threshold === 1 ? 'anotó' : `anotó ${threshold} o más`} en ${scored} de ${total}. ` +
-      'L = local, V = visita; a la derecha el más reciente.',
     homeShort: 'L',
     awayShort: 'V',
     playerTitle: (name, team) => `${name} · ${team}`,
     playerDetail: (match, status, expected) => `${match} · ${status} · esperado ${expected}`,
     playersHint: (value, [singular, pluralForm]) =>
       `Jugadores ordenados por la probabilidad de ${value} ${plural(value, singular, pluralForm)} o más. ` +
-      'Toca uno para ver la pestaña Jugadores de su partido. «Sin XI»: aún sin alineación, se usan sus minutos de promedio.',
+      'Toca uno para ver sus remates en los últimos partidos. «Sin XI»: aún sin alineación, se usan sus minutos de promedio.',
     morePlayers: (count, rest) => moreOf(count, rest),
+    openPlayersTab: 'Ver la pestaña Jugadores del partido',
     groupLabel: 'Estadística',
     sideLabel: 'De quién',
     total: 'Total',
@@ -329,7 +360,9 @@ export const TEXTS = Object.freeze({
   players: {
     both: 'Ambos',
     sideLabel: 'Qué equipo',
-    intro: 'Probabilidad de 1+ tiro a puerta (y 2+). Compara la cuota justa con la de tu casa: si te pagan más, hay valor.',
+    intro:
+      'Probabilidad de 1+ tiro a puerta (y 2+). Compara la cuota justa con la de tu casa: si te pagan más, hay valor. ' +
+      'Toca un jugador para ver sus remates en los últimos partidos.',
     line: (team, status, per90, goals) => `${team} · ${status} · ${per90} a puerta/90 · ${goals} ${plural(goals, 'gol', 'goles')}`,
     twoPlus: (two, fair) => `2+ ${two} · justa ${fair}`,
     notStarting: 'No juegan de inicio',
