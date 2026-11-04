@@ -431,7 +431,7 @@ export function teamShort(name) {
     .replace(/\b(FC|CF|SC|AC|CD|CA|Club|de|del|la|United|City)\b/gi, '')
     .trim()
     .split(/\s+/)
-    .filter(Boolean);
+    .filter((word) => /\p{L}/u.test(word));
   const base = words[0] ?? String(name);
   return base.slice(0, 3).toUpperCase();
 }

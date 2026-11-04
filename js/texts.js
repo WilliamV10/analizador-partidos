@@ -19,6 +19,11 @@ export const TEXTS = Object.freeze({
   app: {
     disclaimer: 'Son probabilidades, no certezas. Apuesta solo lo que estés dispuesto a perder.',
     copyFallback: 'El navegador no dejó copiar: se descargó como archivo de texto.',
+    finishedRemoved: (removed, left) =>
+      `${removed} ${plural(removed, 'partido terminado salió', 'partidos terminados salieron')} de los analizados; ` +
+      `${plural(left, 'queda', 'quedan')} ${left}.`,
+    finishedRemovedAll: (removed) =>
+      `${removed} ${plural(removed, 'partido terminado salió', 'partidos terminados salieron')} de los analizados: ya no queda ninguno por jugar.`,
   },
   pagination: {
     label: 'Páginas',
@@ -229,6 +234,15 @@ export const TEXTS = Object.freeze({
       players: 'Jugadores · remates',
     },
     playerStats: { shotsOnTarget: 'A puerta', shots: 'Remates totales' },
+    teamGoalsTitle: (team, count) => `Goles de ${team} · últimos ${count}`,
+    teamGoalsLabel: (team) => `Goles anotados por ${team} en cada partido reciente, del más viejo al más nuevo`,
+    teamGoalsRow: (date, isHome, opponent, goalsFor, goalsAgainst) =>
+      `${date ?? ''} · ${isHome ? 'local' : 'visita'} vs ${opponent}: ${goalsFor}-${goalsAgainst}`,
+    teamGoalsSummary: (average, scored, total, threshold) =>
+      `Promedio ${average} por partido · ${threshold === 1 ? 'anotó' : `anotó ${threshold} o más`} en ${scored} de ${total}. ` +
+      'L = local, V = visita; a la derecha el más reciente.',
+    homeShort: 'L',
+    awayShort: 'V',
     playerTitle: (name, team) => `${name} · ${team}`,
     playerDetail: (match, status, expected) => `${match} · ${status} · esperado ${expected}`,
     playersHint: (value, [singular, pluralForm]) =>

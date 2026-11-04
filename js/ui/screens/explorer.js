@@ -19,11 +19,12 @@ import {
   isBinaryStat,
   isPlayerStat,
   playerRanking,
+  recentGoals,
   statDistribution,
   valueProbabilities,
 } from '../../domain/explorer.js';
 import { TEXTS } from '../../texts.js';
-import { card, chips, emptyState, growingList, iconButton, kvList, note, pageHead, segmented, selectField, stats } from '../components.js';
+import { card, chips, emptyState, growingList, iconButton, kvList, note, pageHead, segmented, selectField, stats, teamShort } from '../components.js';
 import { h, replaceContent } from '../dom.js';
 import { EMPTY, decimal, odds, percent } from '../formatters.js';
 import { inLeague, leagueSelect, namesOf, tournamentLine } from './shared.js';
@@ -81,6 +82,47 @@ function quoteRows(analysis, stat, value, probabilities) {
   ].filter(Boolean);
 }
 
+/**
+ * Barras con los goles de un equipo en cada partido reciente. Se resaltan los partidos en
+ * que anotó al menos `threshold` (el valor del deslizador si la estadística es de ese equipo).
+ */
+function teamGoalsCard(team, rows, threshold) {
+  if (!rows.length) return null;
+  const top = Math.max(...rows.map((row) => row.goalsFor), 1);
+  const scored = rows.filter((row) => row.goalsFor >= threshold).length;
+  const average = rows.reduce((sum, row) => sum + row.goalsFor, 0) / rows.length;
+  return card(
+    { label: TEXTS.explorer.teamGoalsTitle(team.name, rows.length) },
+    h(
+      'div',
+      { class: 'dist dist--team', role: 'img', 'aria-label': TEXTS.explorer.teamGoalsLabel(team.name) },
+      rows.map((row) =>
+        h(
+          'div',
+          {
+            class: `dist__column${row.goalsFor >= threshold ? ' is-over' : ''}`,
+            title: TEXTS.explorer.teamGoalsRow(row.date, row.isHome, row.opponent, row.goalsFor, row.goalsAgainst),
+          },
+          h('span', { class: 'dist__value' }, row.goalsFor),
+          h('span', { class: 'dist__bar', style: `height:${((row.goalsFor / top) * 100).toFixed(1)}%` }),
+          h('span', { class: 'dist__label' }, `${row.isHome ? TEXTS.explorer.homeShort : TEXTS.explorer.awayShort} ${teamShort(row.opponent)}`),
+        ),
+      ),
+    ),
+    h('p', { class: 'note' }, TEXTS.explorer.teamGoalsSummary(decimal(average, 1), scored, rows.length, threshold)),
+  );
+}
+
+/** Gráficas de goles de los dos equipos (solo en goles de un partido). */
+function teamGoalsCharts(analysis, stat, value, count) {
+  const { home, away } = analysis.match;
+  const thresholdFor = (side) => (stat.side === side ? Math.max(1, value) : 1);
+  return [
+    teamGoalsCard(home, recentGoals(home, count), thresholdFor('home')),
+    teamGoalsCard(away, recentGoals(away, count), thresholdFor('away')),
+  ];
+}
+
 function matchResults(analysis, stat, value, max) {
   const distribution = statDistribution(analysis, stat.id);
   if (!distribution) return emptyState({ title: TEXTS.extra.noData });
@@ -101,6 +143,7 @@ function matchResults(analysis, stat, value, max) {
       distributionChart(distribution, value, max),
       kvList([[TEXTS.explorer.expected, decimal(distributionMean(distribution), 2)], ...quotes]),
     ),
+    stat.group === 'goals' ? teamGoalsCharts(analysis, stat, value, analysis.config.explorer.teamGoalsMatches) : null,
   ];
 }
 
