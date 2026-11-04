@@ -2418,3 +2418,19 @@
   border: 0;
   background: none;
 }
+
+/* Badges del encabezado del partido: textos largos (ej. el árbitro con su historial) se parten
+   en varias líneas en vez de salirse de la pantalla del celular. */
+.match-head__badges {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.match-head__badges .badge {
+  flex: 0 1 auto;
+  max-width: 100%;
+  padding-block: 3px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
