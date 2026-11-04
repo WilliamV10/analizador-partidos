@@ -18,12 +18,18 @@
 // Si la pantalla se apaga o cambias de pestaña/app, Chrome pausa el script y "se queda pegado"
 // (vuelve a seguir al regresar). El script pide que la pantalla no se apague y avisa si pasa.
 // Para cortar y descargar lo que ya tiene: window._sofaParar = true
+//
+// (Mantenimiento: scripts/sofascore_liga.js se genera desde este archivo. Si cambias algo aqui,
+//  corre  node scripts/generar_script_liga.mjs  para actualizarlo.)
 
 { // bloque: permite volver a pegar el script sin el error de 'const' repetida
 // ---------- CONFIGURACION ----------
 const TORNEOS = ['Premier League', 'LaLiga', 'Serie A', 'Bundesliga', 'MLS']; // nombres o ids (Premier = 17)
 const MODO = 'proximos';        // 'proximos' o 'historico'
 const DIAS = 2;                 // proximos: hoy + N dias. historico: ultimos N dias
+const FECHA = null;             // un solo dia en vez de DIAS: 'hoy', 'manana', 'ayer' o '2026-11-08' (null = usar DIAS)
+const HORA_DESDE = null;        // solo partidos que empiezan desde esta hora (tu hora local), ej. '14:00' (null = sin limite)
+const HORA_HASTA = null;        // ... y hasta esta hora, ej. '18:30' (null = sin limite)
 const MAX_PARTIDOS = 80;        // tope total (los mas cercanos a hoy primero)
 const PARTIDOS_TEMP_PASADA = 8; // partidos de la temporada pasada por equipo
 const PARTIDOS_LIGA = 8;        // ultimos partidos de la liga local de cada equipo (0 = no traer)
@@ -126,14 +132,35 @@ const DESCARGAR = true;
   // ---------- 2) Partidos de la ventana de fechas ----------
   const ahora = Date.now() / 1000;
   const inicioHoy = new Date(); inicioHoy.setHours(0, 0, 0, 0);
-  const desde = historico ? ahora - DIAS * 86400 : inicioHoy.getTime() / 1000;
-  const hasta = historico ? ahora : inicioHoy.getTime() / 1000 + (DIAS + 1) * 86400;
+  // FECHA: un solo dia (hoy, manana, ayer o AAAA-MM-DD), en tu hora local
+  const diaElegido = (() => {
+    if (!FECHA) return null;
+    const corrimiento = { hoy: 0, manana: 1, 'mañana': 1, ayer: -1 }[String(FECHA).toLowerCase()];
+    if (corrimiento !== undefined) { const d = new Date(inicioHoy); d.setDate(d.getDate() + corrimiento); return d; }
+    const m = String(FECHA).match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!m) { log(`FECHA "${FECHA}" no se entiende: usa 'hoy', 'manana', 'ayer' o '2026-11-08'.`); return null; }
+    return new Date(+m[1], +m[2] - 1, +m[3]);
+  })();
+  const desde = diaElegido ? diaElegido.getTime() / 1000 : historico ? ahora - DIAS * 86400 : inicioHoy.getTime() / 1000;
+  const hasta = diaElegido ? Math.min(diaElegido.getTime() / 1000 + 86400, historico ? ahora : Infinity) : historico ? ahora : inicioHoy.getTime() / 1000 + (DIAS + 1) * 86400;
+  // HORA_DESDE / HORA_HASTA: minutos del dia en tu hora local ("14:00" -> 840)
+  const aMinutos = h => { const m = String(h ?? '').match(/^(\d{1,2}):(\d{2})$/); return m ? +m[1] * 60 + +m[2] : null; };
+  const minDesde = aMinutos(HORA_DESDE), minHasta = aMinutos(HORA_HASTA);
+  if (HORA_DESDE && minDesde === null) log(`HORA_DESDE "${HORA_DESDE}" no se entiende: usa '14:00'.`);
+  if (HORA_HASTA && minHasta === null) log(`HORA_HASTA "${HORA_HASTA}" no se entiende: usa '18:30'.`);
+  const enHorario = e => {
+    const d = new Date(e.startTimestamp * 1000); const min = d.getHours() * 60 + d.getMinutes();
+    return (minDesde === null || min >= minDesde) && (minHasta === null || min <= minHasta);
+  };
+  if (diaElegido || minDesde !== null || minHasta !== null) {
+    log(`Filtro: ${diaElegido ? fechaLocal(diaElegido) : 'todas las fechas de la ventana'}${minDesde !== null || minHasta !== null ? `, de ${HORA_DESDE ?? '00:00'} a ${HORA_HASTA ?? '23:59'}` : ''} (hora local).`);
+  }
   const vistos = new Map();
   await Promise.all(torneos.map(async t => {
     const s = ((await g(`unique-tournament/${t.id}/seasons`))?.seasons || [])[0]?.id;
     if (!s) return;
-    const evs = await paginas(`unique-tournament/${t.id}/season/${s}/events/${historico ? 'last' : 'next'}`, historico ? 4 : 3);
-    evs.filter(e => e.startTimestamp >= desde && e.startTimestamp < hasta)
+    const evs = await paginas(`unique-tournament/${t.id}/season/${s}/events/${historico ? 'last' : 'next'}`, diaElegido ? 6 : historico ? 4 : 3); // con FECHA lejana hacen falta mas paginas
+    evs.filter(e => e.startTimestamp >= desde && e.startTimestamp < hasta && enHorario(e))
       .filter(e => (historico ? e.status?.type === 'finished' : e.status?.type === 'notstarted'))
       .forEach(e => vistos.set(e.id, e));
   }));
@@ -330,7 +357,7 @@ const DESCARGAR = true;
   const faltan = lista.filter((_, i) => !resultados[i] || resultados[i].error).map(e => `${e.homeTeam.name} vs ${e.awayTeam.name}`);
   const out = {
     version: 5, generado: new Date().toLocaleString(), modo: MODO,
-    filtros: { torneos: torneos.map(t => t.nombre).join(', '), modo: MODO, dias: DIAS },
+    filtros: { torneos: torneos.map(t => t.nombre).join(', '), modo: MODO, dias: diaElegido ? null : DIAS, fecha: diaElegido ? fechaLocal(diaElegido) : null, horaDesde: HORA_DESDE, horaHasta: HORA_HASTA },
     incompleto: faltan.length > 0, faltan,
     posiciones: tablas, partidos
   };

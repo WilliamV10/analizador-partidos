@@ -6,7 +6,7 @@ Página web estática que analiza el JSON exportado por los scripts de Sofascore
 
 ## Uso
 
-1. Corre el script de Sofascore y guarda el JSON: v2 para un partido, v4 para varios de una competición, o **v5 para muchos partidos de varias competiciones**. El v5 tiene un modo **histórico**: descarga partidos ya jugados con su resultado para medir el modelo al instante (en el Historial aparecen con origen "Histórico").
+1. Corre el script de Sofascore y guarda el JSON: v2 para un partido, **liga** (`scripts/sofascore_liga.js`) para los partidos de una liga en un día y rango de horas, v4 para varios de una competición, o **v5 para muchos partidos de varias competiciones** (también con filtro de fecha y hora). El v5 tiene un modo **histórico**: descarga partidos ya jugados con su resultado para medir el modelo al instante (en el Historial aparecen con origen "Histórico").
 2. Abre la página, pega el JSON o sube uno o varios archivos, y pulsa **Analizar**.
    Lo cargado se guarda en el navegador: al volver a abrir la página se recupera solo. **Limpiar** lo borra.
 3. (Opcional) En **Contexto**, copia el resumen, pásaselo a Claude y pega el bloque que devuelve para recalcular con noticias, bajas y rotaciones.
@@ -52,7 +52,8 @@ js/io, js/adapters  lectura y conversión del JSON al modelo interno
 js/domain           cálculos (funciones puras, con tests)
 js/ui               interfaz (screens/ = una pantalla por archivo)
 tests/              tests con node:test
-scripts/            scripts de consola de Sofascore (v2 un partido, v4 varios, v5 varias competiciones y modo histórico)
+scripts/            scripts de consola de Sofascore (v2 un partido, liga por día y hora, v4 varios, v5 varias competiciones y modo histórico;
+                    sofascore_liga.js se genera desde el v5 con  node scripts/generar_script_liga.mjs)
 docs/CONTEXTO.md    documento maestro
 ```
 
