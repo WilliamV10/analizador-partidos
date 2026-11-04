@@ -321,6 +321,34 @@ function hitRateCard(label, summary) {
   );
 }
 
+function confidenceCard(rows) {
+  if (!rows.length) return null;
+  const cell = (summary, strong = false) =>
+    summary.count ? h('span', {}, h(strong ? 'strong' : 'span', {}, percent(summary.hitRate)), h('span', { class: 'table-sub' }, summary.count)) : EMPTY;
+  const range = ({ from, to }) => (to === null ? `≥${Math.round(from * 100)}%` : from === 0 ? `<${Math.round(to * 100)}%` : `${Math.round(from * 100)}–${Math.round(to * 100)}%`);
+  return card(
+    { label: TEXTS.history.forecasts.byConfidence },
+    dataTable({
+      variant: 'summary',
+      head: [
+        { label: TEXTS.history.columns.range },
+        { label: TEXTS.history.columns.hitRate, numeric: true },
+        { label: TEXTS.history.columns.predicted, numeric: true },
+        ...Object.values(TEXTS.history.forecasts.marketsShort).map((label) => ({ label, numeric: true })),
+      ],
+      rows: rows.map((row) => ({
+        cells: [
+          range(row),
+          cell(row, true),
+          percent(row.expected),
+          ...Object.keys(TEXTS.history.forecasts.marketsShort).map((id) => cell(row.byMarket[id])),
+        ],
+      })),
+    }),
+    note(TEXTS.history.forecasts.byConfidenceNote),
+  );
+}
+
 function forecastsView(performance, state, actions) {
   const { historyFilters: filters, config } = state;
   const listed = performance.entries.filter((entry) => matchesStatus(entry.record, filters.status));
@@ -332,6 +360,7 @@ function forecastsView(performance, state, actions) {
       performance.byMarket.map((row) => hitRateCard(TEXTS.history.forecasts.markets[row.key], row)),
     ),
     note(TEXTS.history.forecasts.note),
+    confidenceCard(performance.byConfidence),
     recordsCard({
       title: TEXTS.history.forecasts.records,
       entries: listed.map((entry) => ({ ...entry, odds: entry.record.odds, stake: null })),
@@ -363,7 +392,17 @@ const resultsInput = h('textarea', {
   'aria-label': TEXTS.history.resultsTitle,
 });
 
-function resultsCard(pendingCount, actions) {
+function unsettleableNote(matches, actions) {
+  if (!matches.length) return null;
+  return h(
+    'div',
+    { class: 'rule-row' },
+    h('p', { class: 'note' }, TEXTS.history.unsettleable(matches.map((match) => match.title))),
+    button({ label: TEXTS.history.removeUnsettleable, variant: 'sm', onClick: actions.removeUnsettleable }),
+  );
+}
+
+function resultsCard(pendingCount, unsettleable, actions) {
   return h(
     'details',
     { class: 'card disclosure disclosure--card', open: pendingCount > 0 ? true : null },
@@ -375,6 +414,7 @@ function resultsCard(pendingCount, actions) {
       button({ label: TEXTS.history.copyScript(pendingCount), icon: 'copy', variant: 'primary', disabled: pendingCount === 0, onClick: actions.copyResultsScript }),
       fileButton(TEXTS.history.uploadResults, (files) => actions.loadResults({ text: '', files })),
     ),
+    unsettleableNote(unsettleable, actions),
     resultsInput,
     button({ label: TEXTS.history.settleButton, onClick: () => actions.loadResults({ text: resultsInput.value, files: [] }) }),
   );
@@ -425,7 +465,7 @@ export function renderHistory(state, actions) {
       actions.setHistoryMode,
       TEXTS.history.title,
     ),
-    resultsCard(state.pendingCount, actions),
+    resultsCard(state.pendingCount, state.unsettleable ?? [], actions),
     filtersCard(history.records, performance.entries.map((entry) => entry.record), filters, mode, actions),
     isForecasts ? forecastsView(performance, state, actions) : performanceView(performance, state, actions),
     backupCard(history.persistent, actions),

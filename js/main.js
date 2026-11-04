@@ -81,6 +81,7 @@ const store = createStore({
   historyPage: 0,
   history: { records: [], persistent: true, ready: false, status: null },
   pendingCount: 0,
+  unsettleable: [],
 });
 
 const historyController = createHistoryController({
@@ -143,19 +144,20 @@ function reanalyze(changes) {
  * Quita de los analizados los partidos que ya terminaron (al cargar resultados): ya se
  * liquidaron en el historial y no sirven para apostar. La sesión guardada los recuerda.
  */
-function removeFinishedMatches(ids) {
-  const finished = new Set(ids);
+function removeFinishedMatches(ids, { quiet = false } = {}) {
   const state = store.getState();
+  // Los de una prueba histórica vienen terminados a propósito: esos no se quitan.
+  const finished = new Set(ids.filter((id) => !state.matches.find((match) => match.id === id)?.result));
   const matches = state.matches.filter((match) => !finished.has(match.id));
   const removed = state.matches.length - matches.length;
-  if (!removed) return;
-  saveSessionFinished(ids);
+  if (!removed) return 0;
+  saveSessionFinished([...finished]);
   if (!matches.length) {
     store.setState({ ...EMPTY_RESULTS });
     clearSession();
     clearContextInput();
-    toast(TEXTS.app.finishedRemovedAll(removed));
-    return;
+    if (!quiet) toast(TEXTS.app.finishedRemovedAll(removed));
+    return removed;
   }
   const analyses = state.analyses.filter((analysis) => !finished.has(analysis.match.id));
   const kept = new Set(matches.map((match) => match.id));
@@ -165,7 +167,8 @@ function removeFinishedMatches(ids) {
     comboKeys: state.comboKeys.filter((key) => kept.has(key.split('|')[0])),
     selectedId: kept.has(state.selectedId) ? state.selectedId : (matches[0]?.id ?? null),
   });
-  toast(TEXTS.app.finishedRemoved(removed, matches.length));
+  if (!quiet) toast(TEXTS.app.finishedRemoved(removed, matches.length));
+  return removed;
 }
 
 /** Importa y analiza los JSON; devuelve los análisis (lanza si los datos no sirven). */
@@ -315,11 +318,18 @@ const loader = bindLoader(document.getElementById('screen-load'), {
         ...(pastedText.trim() ? [{ name: TEXTS.loader.pastedSource, text: pastedText }] : []),
         ...(await readTextFiles(files)),
       ];
-      const analyses = loadSources(sources, mode);
-      saveSession({ sources, mode, contextText: null, savedAt: Date.now() });
+      loadSources(sources, mode);
+      await saveSession({ sources, mode, contextText: null, savedAt: Date.now() });
+      // Los que ya se liquidaron (partidos terminados) no vuelven a aparecer.
+      const removed = removeFinishedMatches(historyController.settledMatchIds(), { quiet: true });
+      const { analyses } = store.getState();
       loader.resetInputs();
+      if (!analyses.length) {
+        loader.showStatus(TEXTS.app.finishedRemovedAll(removed), 'error');
+        return;
+      }
       loader.showStatus('');
-      toast(TEXTS.loader.loaded(analyses.length));
+      toast(removed ? TEXTS.loader.loadedWithoutFinished(analyses.length, removed) : TEXTS.loader.loaded(analyses.length));
       navigate(analyses.length > 1 ? SCREENS.DAY : SCREENS.MATCH);
     } catch (error) {
       loader.showStatus(describeError(error), 'error');
@@ -427,5 +437,6 @@ document.querySelectorAll('[data-copy-claude]').forEach((element) => element.add
 hydrateIcons();
 themeToggle.paint();
 render(store.getState());
-historyController.load();
-restoreSession();
+// Al abrir: si algún partido cargado ya se liquidó (ej. con una versión anterior), sale de los analizados.
+await Promise.all([historyController.load(), restoreSession()]);
+removeFinishedMatches(historyController.settledMatchIds());

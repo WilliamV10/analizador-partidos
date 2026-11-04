@@ -203,11 +203,30 @@ export function preferRecord(current, candidate) {
   return candidate.analyzedAt >= current.analyzedAt ? candidate : current;
 }
 
-/** Ids de partidos con registros sin liquidar, del análisis más reciente al más viejo. */
+/** ¿El id es de Sofascore? Los del script viejo (v2) son "v2-Local vs Visita" y el script de resultados no los encuentra. */
+export function isSofascoreId(matchId) {
+  return /^\d+$/.test(String(matchId));
+}
+
+/** Partidos pendientes que el script de resultados no puede liquidar (sin id de Sofascore). */
+export function unsettleableMatches(records) {
+  const titles = new Map();
+  records
+    .filter((record) => !record.settlement && !isSofascoreId(record.matchId))
+    .forEach((record) => titles.set(record.matchId, record.matchTitle));
+  return [...titles].map(([matchId, title]) => ({ matchId, title }));
+}
+
+/** Ids de partidos con al menos una selección liquidada (el partido ya terminó). */
+export function settledMatchIds(records) {
+  return [...new Set(records.filter((record) => record.settlement).map((record) => record.matchId))];
+}
+
+/** Ids de partidos con registros sin liquidar (solo con id de Sofascore), del análisis más reciente al más viejo. */
 export function pendingMatchIds(records, limit) {
   const latestByMatch = new Map();
   records
-    .filter((record) => !record.settlement)
+    .filter((record) => !record.settlement && isSofascoreId(record.matchId))
     .forEach((record) => {
       latestByMatch.set(record.matchId, Math.max(latestByMatch.get(record.matchId) ?? 0, record.analyzedAt));
     });

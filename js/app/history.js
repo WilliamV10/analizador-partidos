@@ -2,7 +2,17 @@
  * Caso de uso: historial de predicciones y apuestas.
  * Mantiene los registros en memoria y los guarda en el almacén (IndexedDB).
  */
-import { backtestRecords, mergeBacktest, mergePredictions, pendingMatchIds, pickRecord, predictionRecords, preferRecord } from '../domain/history.js';
+import {
+  backtestRecords,
+  mergeBacktest,
+  mergePredictions,
+  pendingMatchIds,
+  pickRecord,
+  predictionRecords,
+  preferRecord,
+  settledMatchIds,
+  unsettleableMatches,
+} from '../domain/history.js';
 import { applyResults } from '../domain/settlement.js';
 
 /**
@@ -76,6 +86,19 @@ export function createHistory(store, clock = () => Date.now()) {
     },
 
     pendingMatchIds: (limit) => pendingMatchIds([...records.values()], limit),
+
+    unsettleableMatches: () => unsettleableMatches([...records.values()]),
+
+    settledMatchIds: () => settledMatchIds([...records.values()]),
+
+    /** Borra todos los registros de esos partidos. Devuelve cuántos se borraron. */
+    async removeMatches(matchIds) {
+      const ids = new Set(matchIds);
+      const keys = [...records.values()].filter((record) => ids.has(record.matchId)).map((record) => record.key);
+      keys.forEach((key) => records.delete(key));
+      await store.deleteMany(keys);
+      return keys.length;
+    },
 
     /** Une un respaldo importado con lo guardado (gana el registro con más información). */
     merge(imported) {

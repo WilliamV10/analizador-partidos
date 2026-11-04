@@ -69,7 +69,28 @@ export function forecastPerformance(records) {
   return {
     total: rate(entries),
     byMarket: FORECAST_MARKETS.map(({ id }) => ({ key: id, ...rate(entries.filter((entry) => entry.id === id)) })),
+    byConfidence: byConfidence(entries),
     entries,
   };
+}
+
+/** Rangos de probabilidad del pronóstico (límite inferior de cada uno). */
+const CONFIDENCE_BANDS = [0, 0.55, 0.65, 0.75];
+
+/**
+ * Acierto según qué tan seguro estaba el modelo: sirve para saber desde qué probabilidad
+ * conviene fiarse de un pronóstico. `to` es null en el último rango.
+ */
+function byConfidence(entries) {
+  return CONFIDENCE_BANDS.map((from, index) => {
+    const to = CONFIDENCE_BANDS[index + 1] ?? null;
+    const inBand = entries.filter((entry) => entry.record.probability >= from && (to === null || entry.record.probability < to));
+    return {
+      from,
+      to,
+      ...rate(inBand),
+      byMarket: Object.fromEntries(FORECAST_MARKETS.map(({ id }) => [id, rate(inBand.filter((entry) => entry.id === id))])),
+    };
+  }).filter((row) => row.count > 0);
 }
 

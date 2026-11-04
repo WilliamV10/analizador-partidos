@@ -2353,3 +2353,10 @@
   text-overflow: clip;
   white-space: nowrap;
 }
+
+/* Número chico debajo de un valor de tabla (ej. cuántos pronósticos hay en ese rango). */
+.table-sub {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--faint);
+}
