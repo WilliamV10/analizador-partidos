@@ -93,19 +93,20 @@ const outcomeOf = (row) => (row.goalsFor > row.goalsAgainst ? 'win' : row.goalsF
 /** Detalle de un partido de un equipo: rival, condición, resultado y lo hecho y concedido. */
 function teamRowDetail(row, stat, series) {
   const names = TEXTS.recentChart.statNames;
-  const pairText = (mine, theirs, format = TEXTS.recentChart.forAgainst) => (mine === null || mine === undefined ? EMPTY : format(mine, theirs));
-  return [
-    [TEXTS.recentChart.date, row.date ?? EMPTY],
-    [TEXTS.recentChart.competition, row.competition ?? EMPTY],
-    [TEXTS.recentChart.opponent, TEXTS.recentChart.opponentValue(row.opponent, row.isHome)],
-    [TEXTS.recentChart.result, TEXTS.recentChart.resultValue(row.goalsFor, row.goalsAgainst, outcomeOf(row))],
-    [h('strong', {}, names[stat.source]), h('strong', {}, pairText(series.for(row), series.against(row)))],
-    row.htGoalsFor !== null && stat.source !== 'halfTime' ? [names.halfTime, pairText(row.htGoalsFor, row.htGoalsAgainst, TEXTS.recentChart.vsRival)] : null,
-    ...DETAIL_STATS.filter((key) => key !== stat.source && row.stats[key]).map((key) => [
-      names[key],
-      pairText(row.stats[key].for, row.stats[key].against, TEXTS.recentChart.vsRival),
-    ]),
-  ].filter(Boolean);
+  const tile = (label, mine, theirs, main = false) =>
+    mine === null || mine === undefined
+      ? null
+      : { value: String(mine), label, hint: TEXTS.recentChart.conceded(theirs), tone: main ? 'accent' : '' };
+  return {
+    title: TEXTS.recentChart.versus(row.opponent),
+    subtitle: [row.date, row.competition, row.isHome ? TEXTS.recentChart.atHome : TEXTS.recentChart.away].filter(Boolean).join(' · '),
+    result: { text: TEXTS.recentChart.resultValue(row.goalsFor, row.goalsAgainst, outcomeOf(row)), outcome: outcomeOf(row) },
+    tiles: [
+      tile(names[stat.source], series.for(row), series.against(row), true),
+      stat.source !== 'halfTime' && row.htGoalsFor !== null ? tile(names.halfTime, row.htGoalsFor, row.htGoalsAgainst) : null,
+      ...DETAIL_STATS.filter((key) => key !== stat.source && row.stats[key]).map((key) => tile(names[key], row.stats[key].for, row.stats[key].against)),
+    ].filter(Boolean),
+  };
 }
 
 /**
@@ -139,8 +140,16 @@ function teamCharts(analysis, stat, currentValue) {
             return values.length ? decimal(values.reduce((sum, amount) => sum + amount, 0) / values.length, 1) : EMPTY;
           };
           const threshold = limit();
-          const reached = threshold === null ? null : rows.filter((row) => series.for(row) >= threshold).length;
-          return TEXTS.recentChart.teamSummary(average(series.for), average(series.against), rows.length, threshold, reached, unit);
+          return [
+            { value: average(series.for), label: TEXTS.recentChart.averageFor, tone: 'accent' },
+            { value: average(series.against), label: TEXTS.recentChart.averageAgainst },
+            threshold === null
+              ? { value: String(rows.length), label: TEXTS.recentChart.matchesCount }
+              : {
+                  value: `${rows.filter((row) => series.for(row) >= threshold).length}/${rows.length}`,
+                  label: TEXTS.recentChart.reached(threshold, unit),
+                },
+          ];
         },
       });
     })
