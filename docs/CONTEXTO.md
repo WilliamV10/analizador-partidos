@@ -36,7 +36,7 @@ Sofascore (navegador)                Página (navegador)                 Claude 
                                     10. Recalcula con el contexto
 ```
 
-**Scripts de Sofascore** (están en `scripts/`: `sofascore_multi_v5.js`, `sofascore_multi_v4.js` y `sofascore_partido_v2.js`):
+**Scripts de Sofascore** (están en `scripts/`: `sofascore_liga.js`, `sofascore_multi_v5.js`, `sofascore_multi_v4.js` y `sofascore_partido_v2.js`):
 
 - **v2:** un partido. Imprime el JSON en consola (`copy(JSON.stringify(window._sofa))`).
 - **v4:** varios partidos. Se filtran por `FECHA`, `TORNEO`, `TORNEO_ID`, `HORA` o `IDS` y se descarga un archivo.
@@ -46,7 +46,9 @@ Sofascore (navegador)                Página (navegador)                 Claude 
   - `historico`: partidos ya jugados de los últimos `DIAS` días, con un bloque `resultado` (mismo formato que el script de resultados). Para cada partido solo usa información **anterior**: partidos previos de cada equipo, H2H previo y las estadísticas en vivo vacías. La app los analiza y guarda sus selecciones **ya liquidadas** con origen "histórico" (`backtestRecords`), así se mide el modelo sin esperar. Si el partido ya tenía una predicción en vivo pendiente, se conserva y solo se liquida (`mergeBacktest`).
   - Fugas conocidas del modo histórico: la tabla de posiciones es la actual (no la de ese día) y las cuotas son las últimas antes del partido (cierre), que son más difíciles de batir que las que se ven horas antes.
   - Cuidado con Sofascore: límite de peticiones simultáneas y de ritmo (`PETICIONES_POR_SEGUNDO`, 6 por defecto), pausas crecientes ante 429/403 y, si sigue bloqueando, se detiene y descarga lo que alcanzó (`incompleto`, `faltan`). Procesa `PARTIDOS_A_LA_VEZ` partidos en paralelo y nunca repite una URL (los equipos de una misma liga comparten historial).
+  - Filtro opcional por día y hora: `FECHA` (`'hoy'`, `'manana'`, `'ayer'` o `'AAAA-MM-DD'`, en vez de `DIAS`) y `HORA_DESDE` / `HORA_HASTA` (`'14:00'`, hora local del navegador).
   - Salida: `{ version: 5, modo, filtros, incompleto, faltan, posiciones, partidos }`; la app lo lee igual que el v4.
+- **Liga (`sofascore_liga.js`):** el mismo motor que el v5 con una configuración simple: `LIGA` (nombre o id), `FECHA` (`'hoy'` por defecto), `HORA_DESDE` / `HORA_HASTA` y `MODO`. Es un **archivo generado**: se arma desde el v5 con `node scripts/generar_script_liga.mjs` (cambia el encabezado y la configuración). Si se cambia el v5, hay que volver a generarlo; el generador falla si alguna línea de configuración del v5 cambió.
 - El endpoint `scheduled-events` devuelve 404. Por eso el script busca los partidos desde los endpoints del torneo.
 
 ---

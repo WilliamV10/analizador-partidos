@@ -11,17 +11,27 @@ import { recentChart } from './recentChart.js';
 
 export const PLAYER_SHOT_KINDS = Object.freeze({ ON_TARGET: 'shotsOnTarget', ALL: 'shots' });
 
-function detail(row) {
+/** "2-1" desde el equipo del jugador -> ganó, empató o perdió. */
+function outcomeOf(score) {
+  const [mine, theirs] = String(score ?? '').split('-').map(Number);
+  if (!Number.isFinite(mine) || !Number.isFinite(theirs)) return null;
+  return mine > theirs ? 'win' : mine === theirs ? 'draw' : 'loss';
+}
+
+function detail(row, current) {
   const texts = TEXTS.recentChart;
-  return [
-    [texts.date, row.date ?? '—'],
-    [texts.opponent, texts.opponentValue(row.opponent, row.isHome)],
-    [texts.result, row.score ?? '—'],
-    [texts.minutes, `${row.minutes}'`],
-    [h('strong', {}, texts.statNames.shots), h('strong', {}, String(row.shots))],
-    [h('strong', {}, texts.statNames.shotsOnTarget), h('strong', {}, String(row.shotsOnTarget))],
-    [texts.goals, String(row.goals)],
-  ];
+  const outcome = outcomeOf(row.score);
+  return {
+    title: texts.versus(row.opponent),
+    subtitle: [row.date, row.isHome ? texts.atHome : texts.away].filter(Boolean).join(' · '),
+    result: outcome ? { text: texts.resultValue(...row.score.split('-'), outcome), outcome } : null,
+    tiles: [
+      { value: String(row.shots), label: texts.statNames.shots, tone: current === PLAYER_SHOT_KINDS.ALL ? 'accent' : '' },
+      { value: String(row.shotsOnTarget), label: texts.statNames.shotsOnTarget, tone: current === PLAYER_SHOT_KINDS.ON_TARGET ? 'accent' : '' },
+      { value: String(row.goals), label: texts.goals },
+      { value: `${row.minutes}'`, label: texts.minutes },
+    ],
+  };
 }
 
 /**
@@ -40,13 +50,16 @@ export function playerShotsChart(projection, { kind = PLAYER_SHOT_KINDS.ON_TARGE
       rows,
       value: (row) => row[current],
       threshold,
-      detail,
+      detail: (row) => detail(row, current),
       summary: (shown) => {
         const total = shown.reduce((sum, row) => sum + row[current], 0);
         const minutes = shown.reduce((sum, row) => sum + row.minutes, 0);
         const limit = threshold();
-        const reached = shown.filter((row) => row[current] >= limit).length;
-        return TEXTS.recentChart.playerSummary(decimal(total / shown.length, 1), minutes ? decimal((total / minutes) * 90, 1) : '—', limit, reached, shown.length);
+        return [
+          { value: decimal(total / shown.length, 1), label: TEXTS.recentChart.perMatch, tone: 'accent' },
+          { value: minutes ? decimal((total / minutes) * 90, 1) : '—', label: TEXTS.recentChart.per90 },
+          { value: `${shown.filter((row) => row[current] >= limit).length}/${shown.length}`, label: TEXTS.recentChart.reachedPlain(limit) },
+        ];
       },
       controls: segmented(
         [
