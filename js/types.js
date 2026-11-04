@@ -46,6 +46,18 @@
  */
 
 /**
+ * @typedef {Object} PlayerMatch
+ * @property {string|null} date
+ * @property {string} opponent
+ * @property {boolean} isHome
+ * @property {string|null} score        "2-1" desde el equipo del jugador
+ * @property {number} minutes
+ * @property {number} shots
+ * @property {number} shotsOnTarget
+ * @property {number} goals
+ */
+
+/**
  * @typedef {Object} Player
  * @property {string} name
  * @property {number} appearances
@@ -56,6 +68,7 @@
  * @property {number} goals
  * @property {number|null} xg
  * @property {number} assists
+ * @property {PlayerMatch[]} matches  últimos partidos, del más reciente al más viejo (vacío en JSON viejos)
  */
 
 /**

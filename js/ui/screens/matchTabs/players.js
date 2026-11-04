@@ -7,6 +7,7 @@ import { TEXTS } from '../../../texts.js';
 import { card, dataTable, emptyState, note, segmented, teamShort } from '../../components.js';
 import { h } from '../../dom.js';
 import { EMPTY, decimal, odds, percent } from '../../formatters.js';
+import { expandOnClick, playerShotsChart } from '../../playerChart.js';
 import { namesOf } from '../shared.js';
 
 export const PLAYER_SIDES = Object.freeze({ BOTH: 'both', HOME: 'home', AWAY: 'away' });
@@ -23,9 +24,9 @@ const fairOdds = (probability) => (probability > 0 ? odds(1 / probability) : EMP
 function playerRow(projection, side, teamName) {
   const { season, shotsOnTarget } = projection;
   const hot = shotsOnTarget.one >= HOT_PROBABILITY;
-  return h(
-    'li',
-    { class: 'card player-row' },
+  const trigger = h(
+    'button',
+    { type: 'button', class: 'player-row player-row--button' },
     h('span', { class: `player-row__crest player-row__crest--${side}` }, teamShort(teamName)),
     h(
       'div',
@@ -44,6 +45,8 @@ function playerRow(projection, side, teamName) {
       h('span', { class: 'player-row__hint' }, TEXTS.players.twoPlus(percent(shotsOnTarget.two), fairOdds(shotsOnTarget.one))),
     ),
   );
+  // Al tocarlo: sus remates en los últimos partidos.
+  return h('li', { class: 'card player-item' }, trigger, expandOnClick(trigger, () => playerShotsChart(projection)));
 }
 
 function entriesFor(analysis, side) {

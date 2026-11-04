@@ -10,6 +10,7 @@
 const EVENT_ID = null;          // pon el id si no detecta bien el partido (ej: 16318042)
 const PARTIDOS_TEMP_PASADA = 12; // cuantos partidos de la temporada pasada por equipo
 const DESCARGAR = false;         // true = ademas descarga el .json
+const PARTIDOS_POR_JUGADOR = 10; // partidos recientes de cada jugador (remates por partido para la grafica)
 
 (async () => {
   const API = 'https://www.sofascore.com/api/v1/';
@@ -83,9 +84,17 @@ const DESCARGAR = false;         // true = ademas descarga el .json
     for (const e of actual) {
       partidos.push(await fmtMatch(e, tid));
       const l = await g(`event/${e.id}/lineups`); const side = e.homeTeam.id === tid ? l?.home : l?.away;
+      const local = e.homeTeam.id === tid;
       for (const p of side?.players || []) {
         const q = p.statistics || {}; if (!q.minutesPlayed) continue;
-        const z = jug[p.player.id] ||= { nombre: p.player.name, pj: 0, titular: 0, min: 0, tirosPuerta: 0, tiros: 0, goles: 0, xG: 0, asist: 0 };
+        const z = jug[p.player.id] ||= { nombre: p.player.name, pj: 0, titular: 0, min: 0, tirosPuerta: 0, tiros: 0, goles: 0, xG: 0, asist: 0, partidos: [] };
+        // [fecha, rival, 'L'|'V', resultado, minutos, remates, a puerta, goles] (del mas reciente al mas viejo)
+        if (z.partidos.length < PARTIDOS_POR_JUGADOR) z.partidos.push([
+          new Date(e.startTimestamp * 1000).toISOString().slice(0, 10), local ? e.awayTeam.name : e.homeTeam.name, local ? 'L' : 'V',
+          local ? `${e.homeScore.current}-${e.awayScore.current}` : `${e.awayScore.current}-${e.homeScore.current}`,
+          q.minutesPlayed, (q.onTargetScoringAttempt || 0) + (q.shotOffTarget || 0) + (q.blockedScoringAttempt || 0),
+          q.onTargetScoringAttempt || 0, q.goals || 0
+        ]);
         z.pj++; if (!p.substitute) z.titular++; z.min += q.minutesPlayed;
         z.tirosPuerta += q.onTargetScoringAttempt || 0;
         z.tiros += (q.onTargetScoringAttempt || 0) + (q.shotOffTarget || 0) + (q.blockedScoringAttempt || 0);
