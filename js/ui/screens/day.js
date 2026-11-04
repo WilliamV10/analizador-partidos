@@ -2,11 +2,12 @@
  * Resumen del día: indicadores, filtros por hora, tarjetas de partido y mejores picks.
  */
 import { probableCandidates } from '../../domain/combos.js';
+import { confidentForecasts } from '../../domain/history.js';
 import { probableConfig, probableMarketSelect } from './combo.js';
 import { rankPicks } from '../../domain/ranking.js';
 import { TIERS } from '../../domain/value.js';
 import { TEXTS } from '../../texts.js';
-import { button, chips, notice, pageHead, sectionLabel, segmented, signed, stats } from '../components.js';
+import { button, chips, growingList, notice, pageHead, sectionLabel, segmented, signed, stats } from '../components.js';
 import { h } from '../dom.js';
 import { odds, percent, signedPercent } from '../formatters.js';
 import { bestPick, dayTitle, inLeague, kickoffTime, leagueSelect, matchCard, pickName, tournamentLine, valuePicks } from './shared.js';
@@ -108,6 +109,41 @@ function bestPicksList(state, actions) {
   ];
 }
 
+/** Pronósticos con confianza: lo más probable de ganador, ambos anotan y 2.5 con probabilidad alta. */
+function confidentList(analyses, config, onOpenMatch) {
+  const { confidentProbability, shown } = config.forecasts;
+  const entries = confidentForecasts(analyses, confidentProbability);
+  const row = ({ analysis, forecast }, index) =>
+    h(
+      'li',
+      {},
+      h(
+        'button',
+        { type: 'button', class: 'rank-item', onClick: () => onOpenMatch(analysis.match.id) },
+        h('span', { class: 'rank-item__index' }, index + 1),
+        h(
+          'span',
+          { class: 'rank-item__text' },
+          h('span', { class: 'rank-item__title' }, pickName({ market: forecast.market, key: forecast.selection }, analysis.match)),
+          h('span', { class: 'rank-item__sub' }, `${analysis.match.title} · ${TEXTS.history.forecasts.markets[forecast.id]}`),
+        ),
+        h(
+          'span',
+          { class: 'rank-item__side' },
+          h('strong', { class: 'tone-accent' }, percent(forecast.probability)),
+          h('span', { class: 'muted' }, forecast.odds ? `@ ${odds(forecast.odds)}` : TEXTS.day.fairOdds(odds(1 / forecast.probability))),
+        ),
+      ),
+    );
+  return [
+    sectionLabel(TEXTS.day.confidentForecasts),
+    entries.length
+      ? growingList({ items: entries, render: row, first: shown, batch: shown * 2, tag: 'ol', className: 'rank-list', moreLabel: TEXTS.day.moreForecasts })
+      : h('p', { class: 'note' }, TEXTS.day.noConfidentForecasts(percent(confidentProbability))),
+    h('p', { class: 'note' }, TEXTS.day.confidentNote(percent(confidentProbability))),
+  ];
+}
+
 /**
  * @param {Object} state
  * @param {{ openMatch: (id: string) => void, setDayFilter: (id: string) => void, openCombo: () => void }} actions
@@ -126,6 +162,7 @@ export function renderDay(state, actions) {
     shown.length
       ? h('div', { class: 'grid' }, shown.map((analysis) => matchCard(analysis, { onOpen: actions.openMatch })))
       : h('p', { class: 'note' }, TEXTS.day.noneForFilter),
+    confidentList(analyses, state.config, actions.openMatch),
     bestPicksList({ ...state, analyses }, actions),
     button({ label: TEXTS.day.buildCombo, icon: 'combo', variant: 'soft lg block', onClick: () => actions.openCombo(state.dayPicksMode) }),
   ];

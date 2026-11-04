@@ -4,7 +4,8 @@
 // consola. Para copiarlo escribe:  copy(JSON.stringify(window._sofa))  y Enter,
 // y pegalo (Ctrl+V) en el chat.
 // Novedades v2: incluye la temporada pasada de la misma liga, tabla de posiciones
-// y xG por jugador.
+// y xG por jugador. Guarda el id del partido de Sofascore: con el, el script de
+// resultados del Historial puede liquidarlo.
 
 const EVENT_ID = null;          // pon el id si no detecta bien el partido (ej: 16318042)
 const PARTIDOS_TEMP_PASADA = 12; // cuantos partidos de la temporada pasada por equipo
@@ -12,7 +13,8 @@ const DESCARGAR = false;         // true = ademas descarga el .json
 
 (async () => {
   const API = 'https://www.sofascore.com/api/v1/';
-  const g = async u => { try { const r = await fetch(API + u); return r.ok ? await r.json() : null; } catch { return null; } };
+  // Con tiempo limite: una respuesta que nunca llega dejaria el script colgado.
+  const g = async u => { try { const r = await fetch(API + u, { signal: AbortSignal.timeout(15000) }); return r.ok ? await r.json() : null; } catch { return null; } };
   const log = m => console.log('%c[sofa] ' + m, 'color:#0a7');
 
   // ---------- 1) Detectar el partido ----------
@@ -114,6 +116,7 @@ const DESCARGAR = false;         // true = ademas descarga el .json
 
   const out = {
     version: 2,
+    id: Number(eid), // id de Sofascore: sin el, el partido no se puede liquidar con el script de resultados
     partido: `${ev.homeTeam.name} vs ${ev.awayTeam.name}`, torneo: ev.tournament?.name, jornada: ev.roundInfo?.round,
     temporadaActual: ev.season?.name, temporadaPasada: prevSeason?.name,
     hora: new Date(ev.startTimestamp * 1000).toLocaleString(), estado: ev.status?.description,

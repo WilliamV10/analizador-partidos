@@ -32,6 +32,12 @@ describe('importMatches', () => {
     assert.equal(match.standings.length, 2);
   });
 
+  it('v2 usa el id de Sofascore si viene (para poder liquidarlo)', () => {
+    assert.equal(importMatches([source({ ...rawSingle(), id: 16318042 })])[0].id, '16318042');
+    const { id: _ignored, ...withoutId } = rawSingle();
+    assert.match(importMatches([source(withoutId)])[0].id, /^v2-/);
+  });
+
   it('orienta el H2H desde el local', () => {
     const [match] = importMatches([source(rawSingle())]);
     assert.deepEqual(

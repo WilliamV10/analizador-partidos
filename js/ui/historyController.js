@@ -31,6 +31,7 @@ export function createHistoryController({ history, store, betDialog, onMatchesFi
     store.setState({
       history: { records: history.list(), persistent: history.persistent, ready: true, status },
       pendingCount: history.pendingMatchIds(config().maxScriptMatches).length,
+      unsettleable: history.unsettleableMatches(),
     });
   }
 
@@ -86,6 +87,9 @@ export function createHistoryController({ history, store, betDialog, onMatchesFi
       refresh();
     },
 
+    /** Partidos que ya tienen selecciones liquidadas en el historial. */
+    settledMatchIds: () => history.settledMatchIds(),
+
     /** Guarda las predicciones de un análisis nuevo (si nada cambió, no redibuja). */
     async recordAnalyses(analyses) {
       try {
@@ -139,6 +143,15 @@ export function createHistoryController({ history, store, betDialog, onMatchesFi
           const changed = await history.merge(imported);
           return success(TEXTS.history.imported(changed));
         }),
+
+      removeUnsettleable() {
+        const matches = history.unsettleableMatches();
+        if (!matches.length || !window.confirm(TEXTS.history.confirmRemoveUnsettleable(matches.map((match) => match.title)))) return;
+        run(async () => {
+          await history.removeMatches(matches.map((match) => match.matchId));
+          return success(TEXTS.history.unsettleableRemoved(matches.length));
+        });
+      },
 
       clearHistory() {
         if (!window.confirm(TEXTS.history.confirmClear)) return;

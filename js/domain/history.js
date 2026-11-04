@@ -6,6 +6,7 @@
  */
 import { hasStarted } from './alerts.js';
 import { applyResults } from './settlement.js';
+import { towardHalfFor } from './value.js';
 
 /**
  * Origen de un registro: en vivo (analizado antes del partido) o histórico (partido ya
@@ -91,7 +92,11 @@ export const FORECAST_MARKETS = Object.freeze([
   {
     id: 'btts',
     market: { type: 'btts', line: null, name: 'Both teams to score' },
-    probabilities: ({ binary }) => ({ yes: binary.btts.final, no: 1 - binary.btts.final }),
+    // Sin cuota de la casa: solo se acerca al 50 %, como en la pestaña Valor (value.towardHalf).
+    probabilities: ({ binary, config }) => {
+      const yes = 0.5 + towardHalfFor('btts', config.value) * (binary.btts.final - 0.5);
+      return { yes, no: 1 - yes };
+    },
   },
   {
     id: 'goals25',
@@ -120,6 +125,38 @@ function forecastFillers(analysis, now, origin) {
       .filter(([selection]) => !quoted.has(recordKey(analysis.match.id, market, selection)))
       .map(([selection, probability]) => modelOnlyRecord(analysis.match, market, selection, probability, now, origin)),
   );
+}
+
+/**
+ * Pronóstico de un partido: en cada mercado del pronóstico, la selección más probable, con la
+ * misma probabilidad que se guarda en el historial (la de la pestaña Valor si la casa tiene esa
+ * cuota; si no, la del modelo).
+ * @param {import('./analyzeMatch.js').MatchAnalysis} analysis
+ * @returns {{ id: string, market: Object, selection: string, probability: number, odds: number|null }[]}
+ */
+export function matchForecasts(analysis) {
+  return FORECAST_MARKETS.map(({ id, market, probabilities }) => {
+    const options = Object.entries(probabilities(analysis)).map(([selection, probability]) => {
+      const pick = analysis.picks.find(
+        (candidate) => candidate.market.type === market.type && (candidate.market.line ?? null) === (market.line ?? null) && candidate.key === selection,
+      );
+      return { id, market: pick?.market ?? market, selection, probability: pick?.probability ?? probability, odds: pick?.odds ?? null };
+    });
+    return options.reduce((best, option) => (option.probability > best.probability ? option : best));
+  });
+}
+
+/**
+ * Pronósticos con confianza (probabilidad ≥ `minProbability`) de varios partidos, de mayor a menor.
+ * En el historial, el ganador con 65 % o más fue el pronóstico que más acertó.
+ * @param {import('./analyzeMatch.js').MatchAnalysis[]} analyses
+ * @param {number} minProbability
+ */
+export function confidentForecasts(analyses, minProbability) {
+  return analyses
+    .flatMap((analysis) => matchForecasts(analysis).map((forecast) => ({ analysis, forecast })))
+    .filter(({ forecast }) => forecast.probability >= minProbability)
+    .sort((a, b) => b.forecast.probability - a.forecast.probability);
 }
 
 /**
@@ -203,11 +240,30 @@ export function preferRecord(current, candidate) {
   return candidate.analyzedAt >= current.analyzedAt ? candidate : current;
 }
 
-/** Ids de partidos con registros sin liquidar, del análisis más reciente al más viejo. */
+/** ¿El id es de Sofascore? Los del script viejo (v2) son "v2-Local vs Visita" y el script de resultados no los encuentra. */
+export function isSofascoreId(matchId) {
+  return /^\d+$/.test(String(matchId));
+}
+
+/** Partidos pendientes que el script de resultados no puede liquidar (sin id de Sofascore). */
+export function unsettleableMatches(records) {
+  const titles = new Map();
+  records
+    .filter((record) => !record.settlement && !isSofascoreId(record.matchId))
+    .forEach((record) => titles.set(record.matchId, record.matchTitle));
+  return [...titles].map(([matchId, title]) => ({ matchId, title }));
+}
+
+/** Ids de partidos con al menos una selección liquidada (el partido ya terminó). */
+export function settledMatchIds(records) {
+  return [...new Set(records.filter((record) => record.settlement).map((record) => record.matchId))];
+}
+
+/** Ids de partidos con registros sin liquidar (solo con id de Sofascore), del análisis más reciente al más viejo. */
 export function pendingMatchIds(records, limit) {
   const latestByMatch = new Map();
   records
-    .filter((record) => !record.settlement)
+    .filter((record) => !record.settlement && isSofascoreId(record.matchId))
     .forEach((record) => {
       latestByMatch.set(record.matchId, Math.max(latestByMatch.get(record.matchId) ?? 0, record.analyzedAt));
     });

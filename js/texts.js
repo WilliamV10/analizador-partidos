@@ -56,6 +56,9 @@ export const TEXTS = Object.freeze({
   loader: {
     pastedSource: 'texto pegado',
     loaded: (count) => `${count} ${plural(count, 'partido analizado', 'partidos analizados')}.`,
+    loadedWithoutFinished: (count, finished) =>
+      `${count} ${plural(count, 'partido analizado', 'partidos analizados')}; ` +
+      `${finished} ya ${plural(finished, 'terminado no se muestra', 'terminados no se muestran')}.`,
     summary: (analyses) => {
       const tournaments = [...new Set(analyses.map((analysis) => analysis.match.tournament).filter(Boolean))];
       const count = `${analyses.length} ${plural(analyses.length, 'partido', 'partidos')}`;
@@ -376,6 +379,13 @@ export const TEXTS = Object.freeze({
     noneForFilter: 'Ningún partido con ese filtro.',
     noPick: 'Sin picks con valor',
     bestPicks: 'Mejores picks del día',
+    confidentForecasts: 'Pronósticos con confianza',
+    noConfidentForecasts: (min) => `Ningún pronóstico llega a ${min} en estos partidos.`,
+    confidentNote: (min) =>
+      `Lo más probable de ganador, ambos anotan y más/menos 2.5 cuando el modelo le da ${min} o más, haya valor o no. ` +
+      'En el historial, el ganador con 65 % o más acertó 14 de 15; mira su acierto real en Historial → Pronósticos.',
+    moreForecasts: (count, rest) => moreOf(count, rest),
+    fairOdds: (value) => `justa ${value}`,
     noPicksForMode: 'Ningún pick cumple este criterio.',
     versus: 'vs',
     buildCombo: 'Armar combinada con estos picks',
@@ -665,7 +675,18 @@ export const TEXTS = Object.freeze({
         'haya valor o no. Se guardan aunque la casa no tenga esa cuota.',
       empty: 'Todavía no hay pronósticos guardados.',
       emptyHint: 'Se guardan solos al analizar partidos que aún no empiezan.',
+      byConfidence: 'Acierto según la confianza',
+      marketsShort: { result: '1X2', btts: 'Ambos', goals25: '2.5' },
+      byConfidenceNote:
+        'Cada fila junta los pronósticos según la probabilidad que les daba el modelo; debajo de cada acierto, cuántos hay. ' +
+        'Si en un rango acierta mucho menos de lo esperado, el modelo se está pasando de seguro ahí.',
     },
+    unsettleable: (titles) =>
+      `${titles.length} ${plural(titles.length, 'partido pendiente no tiene', 'partidos pendientes no tienen')} id de Sofascore ` +
+      `(script viejo) y el script de resultados no puede liquidarlos: ${titles.join(', ')}.`,
+    removeUnsettleable: 'Quitarlos',
+    confirmRemoveUnsettleable: (titles) => `¿Quitar del historial ${titles.join(', ')}? No se pueden liquidar.`,
+    unsettleableRemoved: (count) => `${count} ${plural(count, 'partido quitado', 'partidos quitados')} del historial.`,
     settled: 'Liquidadas',
     pending: (count) => `${count} ${plural(count, 'pendiente', 'pendientes')}`,
     profit: 'Ganancia',

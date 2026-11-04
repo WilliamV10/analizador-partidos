@@ -85,6 +85,13 @@ export const CONFIG = deepFreeze({
     modelWeight: { goals: 0.7, btts: 0.7, firstGoal: 0.5, halfTime: 0.5, result: 0.3, handicap: 0.3, corners: 0.2, cards: 0.3 },
     /** Peso del modelo en mercados sin peso propio. */
     defaultModelWeight: 0.4,
+    /**
+     * Acercar al 50 % (después de mezclar con la casa), por grupo de mercado:
+     *   prob. = 50 % + factor × (prob. − 50 %).
+     * En ambos anotan, tanto el modelo como la casa se pasan de seguros: lo que daban de 65 %
+     * pasó cerca del 55 %. 1 = sin cambio.
+     */
+    towardHalf: { btts: 0.6 },
     /** EV para nivel alto y medio (con la probabilidad ya acercada a la casa, los EV son más chicos). */
     highEv: 0.05,
     mediumEv: 0.025,
@@ -212,6 +219,12 @@ export const CONFIG = deepFreeze({
     minComboOdds: 1.8,
     /** Selecciones más probables de cada partido que se prueban al armar combinadas. */
     candidatesPerMatch: 2,
+  },
+  forecasts: {
+    /** Desde esta probabilidad un pronóstico se muestra como "con confianza" en el Día. */
+    confidentProbability: 0.65,
+    /** Pronósticos con confianza a la vista en el Día (el resto con "Ver más"). */
+    shown: 6,
   },
   history: {
     /** Partidos pendientes que entran en un script de resultados (Sofascore limita peticiones). */

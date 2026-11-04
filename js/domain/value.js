@@ -102,15 +102,22 @@ function evidenceFor(market, selection, fairProbability, context) {
 /**
  * Acerca el resultado del modelo a la casa: la parte decidida (gana o pierde) se reparte con
  * la probabilidad mezclada; la devolución (empate no apuesta, hándicap) queda igual.
+ * `towardHalf` < 1 acerca además esa probabilidad al 50 % (mercados donde todos se pasan de seguros).
  */
-export function shrinkToMarket(outcome, fairProbability, weight) {
+export function shrinkToMarket(outcome, fairProbability, weight, towardHalf = 1) {
   const decided = outcome.win + outcome.loss;
-  const probability = weight * winProbability(outcome) + (1 - weight) * fairProbability;
+  const blended = weight * winProbability(outcome) + (1 - weight) * fairProbability;
+  const probability = 0.5 + towardHalf * (blended - 0.5);
   return { win: probability * decided, push: outcome.push, loss: (1 - probability) * decided };
 }
 
 function modelWeightFor(market, config) {
   return config.modelWeight?.[marketGroup(market)] ?? config.defaultModelWeight ?? 1;
+}
+
+/** Factor para acercar al 50 % (1 = sin cambio). */
+export function towardHalfFor(group, config) {
+  return config.towardHalf?.[group] ?? 1;
 }
 
 function evaluateMarket(market, context) {
@@ -119,12 +126,13 @@ function evaluateMarket(market, context) {
     market.fairTotal,
   );
   const weight = modelWeightFor(market, context.config);
+  const towardHalf = towardHalfFor(marketGroup(market), context.config);
   return market.selections
     .map((selection, index) => {
       const modelOutcome = selectionOutcome(market, selection.key, context.finalModel);
       if (!modelOutcome) return null;
       const modelProbability = winProbability(modelOutcome);
-      const outcome = shrinkToMarket(modelOutcome, fair[index], weight);
+      const outcome = shrinkToMarket(modelOutcome, fair[index], weight, towardHalf);
       const probability = winProbability(outcome);
       const ev = expectedValue(outcome, selection.odds);
       const evidence = evidenceFor(market, selection, fair[index], context);
