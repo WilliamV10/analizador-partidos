@@ -1,4 +1,4 @@
-// ===== Sofascore -> JSON de los partidos de UNA liga, por dia y hora =====
+// ===== Sofascore -> JSON de los partidos de una o varias ligas, por dia y hora =====
 // ARCHIVO GENERADO desde sofascore_multi_v5.js (node scripts/generar_script_liga.mjs): no lo edites a mano.
 //
 // Uso: abre cualquier pagina de sofascore.com, F12 -> "Console", pega todo y Enter.
@@ -6,9 +6,12 @@
 // Puedes pegarlo varias veces sin recargar la pagina (todo va dentro de un bloque { }).
 //
 // Cambia solo la CONFIGURACION de abajo:
-//  - LIGA: nombre o id de la liga (ej. 'Premier League', 'LaLiga', 'Liga MX', 17).
+//  - LIGAS: una o varias, cada una con su horario si quieres (hora local):
+//        ['Premier League']                                  una liga, todo el dia
+//        ['Premier League 09:00-12:00', 'MLS 18:00-23:30']   cada una en su horario
+//        ['LaLiga', 17, { liga: 'Liga MX', desde: '19:00', hasta: '23:59' }]
 //  - FECHA: 'hoy', 'manana', 'ayer' o una fecha '2026-11-08'.
-//  - HORA_DESDE / HORA_HASTA: rango de horas en tu hora local (ej. '14:00' y '18:30'); null = todo el dia.
+//  - HORA_DESDE / HORA_HASTA: horario de las ligas que no traen el suyo (ej. '14:00' y '18:30'); null = todo el dia.
 //  - MODO: 'proximos' (por jugar) o 'historico' (ya jugados, para medir el modelo; usa FECHA 'ayer' o pasada).
 //
 // Va despacio a proposito para que Sofascore no bloquee; si bloquea, para y descarga lo que tenga.
@@ -17,13 +20,13 @@
 
 { // bloque: permite volver a pegar el script sin el error de 'const' repetida
 // ---------- CONFIGURACION ----------
-const LIGA = 'Premier League';  // nombre o id de la liga (Premier = 17)
-const TORNEOS = [LIGA];
+const LIGAS = ['Premier League']; // una o varias: 'LaLiga', 17, con horario 'MLS 18:00-23:30'
+const TORNEOS = LIGAS;
 const MODO = 'proximos';        // 'proximos' o 'historico'
 const DIAS = 0;                 // (solo si FECHA es null) proximos: hoy + N dias. historico: ultimos N dias
 const FECHA = 'hoy';            // 'hoy', 'manana', 'ayer' o '2026-11-08'
-const HORA_DESDE = null;        // desde esta hora (tu hora local), ej. '14:00'; null = desde las 00:00
-const HORA_HASTA = null;        // hasta esta hora, ej. '18:30'; null = hasta las 23:59
+const HORA_DESDE = null;        // ligas sin horario propio: desde esta hora (tu hora local), ej. '14:00'; null = desde las 00:00
+const HORA_HASTA = null;        // ... y hasta esta hora, ej. '18:30'; null = hasta las 23:59
 const MAX_PARTIDOS = 40;        // tope de partidos
 const PARTIDOS_TEMP_PASADA = 8; // partidos de la temporada pasada por equipo
 const PARTIDOS_LIGA = 8;        // ultimos partidos de la liga local de cada equipo (0 = no traer)
@@ -107,21 +110,43 @@ const DESCARGAR = true;
     return out;
   };
 
-  // ---------- 1) Torneos ----------
+  // ---------- 1) Torneos (cada uno con su horario, si lo trae) ----------
+  // HORA "14:00" -> minutos del dia en tu hora local (840)
+  const aMinutos = h => { const m = String(h ?? '').match(/^(\d{1,2}):(\d{2})$/); return m && +m[1] < 24 && +m[2] < 60 ? +m[1] * 60 + +m[2] : null; };
+  const horario = (desdeTxt, hastaTxt, donde) => {
+    const h = { desde: aMinutos(desdeTxt), hasta: aMinutos(hastaTxt), desdeTxt, hastaTxt };
+    if (desdeTxt && h.desde === null) log(`${donde}: hora "${desdeTxt}" no se entiende, usa '14:00'.`);
+    if (hastaTxt && h.hasta === null) log(`${donde}: hora "${hastaTxt}" no se entiende, usa '18:30'.`);
+    return h;
+  };
+  const horarioGeneral = horario(HORA_DESDE, HORA_HASTA, 'HORA_DESDE/HORA_HASTA');
+  const conHoras = h => h.desde !== null || h.hasta !== null;
+  const textoHoras = h => `de ${h.desdeTxt ?? '00:00'} a ${h.hastaTxt ?? '23:59'}`;
+  // 'MLS 18:00-23:30' o { liga: 'MLS', desde: '18:00', hasta: '23:30' } -> { ref, horario }
+  const leerEntrada = t => {
+    if (t && typeof t === 'object') {
+      const ref = t.liga ?? t.id ?? t.nombre;
+      return { ref, horario: t.desde || t.hasta ? horario(t.desde ?? null, t.hasta ?? null, String(ref)) : horarioGeneral };
+    }
+    const m = typeof t === 'string' ? t.match(/^(.*?)\s+(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/) : null;
+    if (m) return { ref: /^\d+$/.test(m[1]) ? +m[1] : m[1], horario: horario(m[2], m[3], m[1]) };
+    return { ref: t, horario: horarioGeneral };
+  };
   const torneos = [];
-  for (const t of TORNEOS) {
+  for (const entrada of TORNEOS) {
+    const { ref: t, horario: h } = leerEntrada(entrada);
     if (typeof t === 'number') {
       const info = (await g(`unique-tournament/${t}`))?.uniqueTournament;
-      torneos.push({ id: t, nombre: info?.name ?? String(t), pais: info?.category?.name ?? '' });
+      torneos.push({ id: t, nombre: info?.name ?? String(t), pais: info?.category?.name ?? '', horario: h });
       continue;
     }
     const res = (await g(`search/all?q=${encodeURIComponent(t)}`))?.results || [];
     const cands = res.filter(r => r.type === 'uniqueTournament' && (r.entity?.category?.sport?.slug || 'football') === 'football').map(r => r.entity);
-    const elegido = cands.find(c => c.name?.toLowerCase() === t.toLowerCase()) || cands.sort((a, b) => (b.userCount || 0) - (a.userCount || 0))[0];
-    if (elegido) torneos.push({ id: elegido.id, nombre: elegido.name, pais: elegido.category?.name ?? '' });
+    const elegido = cands.find(c => c.name?.toLowerCase() === String(t).toLowerCase()) || cands.sort((a, b) => (b.userCount || 0) - (a.userCount || 0))[0];
+    if (elegido) torneos.push({ id: elegido.id, nombre: elegido.name, pais: elegido.category?.name ?? '', horario: h });
     else log(`No encontre "${t}". Usa su id (numero) en TORNEOS.`);
   }
-  torneos.forEach(t => log(`Torneo: ${t.nombre} (${t.pais}, id ${t.id})`));
+  torneos.forEach(t => log(`Torneo: ${t.nombre} (${t.pais}, id ${t.id})${conHoras(t.horario) ? ` · ${textoHoras(t.horario)}` : ''}`));
 
   // ---------- 2) Partidos de la ventana de fechas ----------
   const ahora = Date.now() / 1000;
@@ -137,24 +162,21 @@ const DESCARGAR = true;
   })();
   const desde = diaElegido ? diaElegido.getTime() / 1000 : historico ? ahora - DIAS * 86400 : inicioHoy.getTime() / 1000;
   const hasta = diaElegido ? Math.min(diaElegido.getTime() / 1000 + 86400, historico ? ahora : Infinity) : historico ? ahora : inicioHoy.getTime() / 1000 + (DIAS + 1) * 86400;
-  // HORA_DESDE / HORA_HASTA: minutos del dia en tu hora local ("14:00" -> 840)
-  const aMinutos = h => { const m = String(h ?? '').match(/^(\d{1,2}):(\d{2})$/); return m ? +m[1] * 60 + +m[2] : null; };
-  const minDesde = aMinutos(HORA_DESDE), minHasta = aMinutos(HORA_HASTA);
-  if (HORA_DESDE && minDesde === null) log(`HORA_DESDE "${HORA_DESDE}" no se entiende: usa '14:00'.`);
-  if (HORA_HASTA && minHasta === null) log(`HORA_HASTA "${HORA_HASTA}" no se entiende: usa '18:30'.`);
-  const enHorario = e => {
+  // Horario de cada torneo (el suyo o el general); si 'hasta' es menor que 'desde' cruza la medianoche (ej. 22:00-02:00)
+  const enHorario = (e, h) => {
     const d = new Date(e.startTimestamp * 1000); const min = d.getHours() * 60 + d.getMinutes();
-    return (minDesde === null || min >= minDesde) && (minHasta === null || min <= minHasta);
+    if (h.desde !== null && h.hasta !== null && h.hasta < h.desde) return min >= h.desde || min <= h.hasta;
+    return (h.desde === null || min >= h.desde) && (h.hasta === null || min <= h.hasta);
   };
-  if (diaElegido || minDesde !== null || minHasta !== null) {
-    log(`Filtro: ${diaElegido ? fechaLocal(diaElegido) : 'todas las fechas de la ventana'}${minDesde !== null || minHasta !== null ? `, de ${HORA_DESDE ?? '00:00'} a ${HORA_HASTA ?? '23:59'}` : ''} (hora local).`);
+  if (diaElegido || conHoras(horarioGeneral)) {
+    log(`Filtro: ${diaElegido ? fechaLocal(diaElegido) : 'todas las fechas de la ventana'}${conHoras(horarioGeneral) ? `, ${textoHoras(horarioGeneral)}` : ''} (hora local).`);
   }
   const vistos = new Map();
   await Promise.all(torneos.map(async t => {
     const s = ((await g(`unique-tournament/${t.id}/seasons`))?.seasons || [])[0]?.id;
     if (!s) return;
     const evs = await paginas(`unique-tournament/${t.id}/season/${s}/events/${historico ? 'last' : 'next'}`, diaElegido ? 6 : historico ? 4 : 3); // con FECHA lejana hacen falta mas paginas
-    evs.filter(e => e.startTimestamp >= desde && e.startTimestamp < hasta && enHorario(e))
+    evs.filter(e => e.startTimestamp >= desde && e.startTimestamp < hasta && enHorario(e, t.horario))
       .filter(e => (historico ? e.status?.type === 'finished' : e.status?.type === 'notstarted'))
       .forEach(e => vistos.set(e.id, e));
   }));
@@ -351,7 +373,7 @@ const DESCARGAR = true;
   const faltan = lista.filter((_, i) => !resultados[i] || resultados[i].error).map(e => `${e.homeTeam.name} vs ${e.awayTeam.name}`);
   const out = {
     version: 5, generado: new Date().toLocaleString(), modo: MODO,
-    filtros: { torneos: torneos.map(t => t.nombre).join(', '), modo: MODO, dias: diaElegido ? null : DIAS, fecha: diaElegido ? fechaLocal(diaElegido) : null, horaDesde: HORA_DESDE, horaHasta: HORA_HASTA },
+    filtros: { torneos: torneos.map(t => t.nombre + (conHoras(t.horario) ? ` (${textoHoras(t.horario)})` : '')).join(', '), modo: MODO, dias: diaElegido ? null : DIAS, fecha: diaElegido ? fechaLocal(diaElegido) : null, horaDesde: HORA_DESDE, horaHasta: HORA_HASTA },
     incompleto: faltan.length > 0, faltan,
     posiciones: tablas, partidos
   };
