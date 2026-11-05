@@ -208,13 +208,18 @@ function copyForClaude() {
   copyText(buildClaudePrompt(subset), TEXTS.contextPanel.copied(subset.length));
 }
 
-function saveSetting(path, value) {
-  if (value === undefined) return;
-  const overrides = { ...readJsonPreference(SETTINGS_STORAGE_KEY, {}), [path]: value };
+/** Guarda varios ajustes juntos ({ ruta: valor }) y recalcula una sola vez. */
+function saveSettings(changes, message = TEXTS.settings.saved) {
+  const overrides = { ...readJsonPreference(SETTINGS_STORAGE_KEY, {}), ...changes };
   const saved = cleanOverrides(CONFIG, overrides);
   writeJsonPreference(SETTINGS_STORAGE_KEY, saved);
-  reanalyze({ config: applySettings(CONFIG, saved) });
-  toast(TEXTS.settings.saved);
+  reanalyze({ config: applySettings(CONFIG, saved), settingsRevision: store.getState().settingsRevision + 1 });
+  toast(message);
+}
+
+function saveSetting(path, value) {
+  if (value === undefined) return;
+  saveSettings({ [path]: value });
 }
 
 const actions = {
@@ -289,6 +294,7 @@ const actions = {
   },
 
   saveSetting,
+  saveSettings: (changes) => saveSettings(changes, TEXTS.settings.calibration.applied(Object.keys(changes).length)),
   resetSettings() {
     removePreference(SETTINGS_STORAGE_KEY);
     reanalyze({ config: CONFIG, settingsRevision: store.getState().settingsRevision + 1 });
@@ -378,7 +384,7 @@ const SCREEN_VIEWS = {
   [SCREENS.COMBO]: { render: renderCombo },
   [SCREENS.CONTEXT]: { render: renderContext },
   [SCREENS.HISTORY]: { render: renderHistory },
-  [SCREENS.SETTINGS]: { render: renderSettings, key: (state) => [state.settingsRevision] },
+  [SCREENS.SETTINGS]: { render: renderSettings, key: (state) => [state.settingsRevision, state.history.records] },
 };
 
 const roots = {

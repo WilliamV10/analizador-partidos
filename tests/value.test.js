@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { CONFIG } from '../js/config.js';
 import { blendWithEmpirical, empiricalRate } from '../js/domain/empirical.js';
+import { suggestModelWeights } from '../js/domain/calibration.js';
 import { TIERS, confidenceTier, expectedValue, shrinkToMarket, winProbability } from '../js/domain/value.js';
 
 describe('expectedValue / winProbability', () => {
@@ -78,5 +79,32 @@ describe('empírico', () => {
 
   it('sin datos devuelve el modelo', () => {
     assert.equal(blendWithEmpirical(0.42, { rate: null, n: 0 }, CONFIG.empirical).final, 0.42);
+  });
+});
+
+describe('suggestModelWeights', () => {
+  // La casa acierta (lo que dice pasa) y el modelo se pasa de seguro: conviene pesar menos al modelo.
+  const records = Array.from({ length: 400 }, (_, index) => {
+    const won = index % 10 < 6;
+    return {
+      market: { type: 'result', line: null },
+      settlement: { status: won ? 'win' : 'loss' },
+      modelProbability: 0.85,
+      fairProbability: 0.6,
+      probability: 0.7,
+      analyzedAt: Date.now(),
+    };
+  });
+
+  it('sugiere bajar el peso del modelo donde la casa acierta mejor', () => {
+    const result = suggestModelWeights(records, CONFIG.value).find((row) => row.group === 'result');
+    assert.equal(result.best, 0);
+    assert.ok(result.suggested < CONFIG.value.modelWeight.result);
+    assert.ok(result.improvement > 0);
+  });
+
+  it('con pocos datos no sugiere nada', () => {
+    const result = suggestModelWeights(records.slice(0, 20), CONFIG.value).find((row) => row.group === 'result');
+    assert.equal(result.suggested, null);
   });
 });

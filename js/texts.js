@@ -79,6 +79,7 @@ export const TEXTS = Object.freeze({
     settings: 'Ajustes',
   },
   weekdays: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+  weekdaysShort: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
   theme: {
     toDark: 'Cambiar a modo oscuro',
     toLight: 'Cambiar a modo claro',
@@ -408,6 +409,7 @@ export const TEXTS = Object.freeze({
     unconfirmed: 'XI sin confirmar',
     all: 'Todos',
     withValue: 'Con valor',
+    parts: { morning: 'Mañana', afternoon: 'Tarde', night: 'Noche' },
     filters: 'Filtrar partidos',
     noneForFilter: 'Ningún partido con ese filtro.',
     noPick: 'Sin picks con valor',
@@ -823,6 +825,23 @@ export const TEXTS = Object.freeze({
       value: 'Valor y confianza',
       combos: 'Combinadas',
       intelligence: 'Inteligencia de datos',
+      marketWeights: 'Peso del modelo frente a la casa',
+    },
+    groupNotes: {
+      marketWeights:
+        'En cada mercado, la probabilidad de los picks = peso × modelo + (1 − peso) × casa. ' +
+        '100 % = solo el modelo; 0 % = solo la casa (casi no salen picks).',
+    },
+    calibration: {
+      title: 'Sugerencia con tu historial',
+      intro: (count) =>
+        `Con ${count} selecciones liquidadas: el peso que mejor acertó en cada mercado, acercado al actual mientras haya pocos datos.`,
+      empty: 'Todavía no hay suficientes selecciones liquidadas para sugerir pesos (hacen falta unas 80 por mercado).',
+      columns: { group: 'Mercado', current: 'Ahora', suggested: 'Sugerido', count: 'N' },
+      fewData: 'pocos datos',
+      apply: 'Aplicar sugerencias',
+      applied: (count) => `${count} ${plural(count, 'peso actualizado', 'pesos actualizados')}; partidos recalculados.`,
+      nothing: 'Los pesos ya están en lo sugerido.',
     },
     fields: {
       'lambda.marketWeight': 'Peso de las cuotas en los goles esperados',
@@ -841,6 +860,15 @@ export const TEXTS = Object.freeze({
       'value.minOdds': 'Cuota mínima para recomendar',
       'value.minSampleHigh': 'Muestra mínima para confianza alta',
       'value.maxEdge': 'Ventaja máxima creíble sobre la casa',
+      'value.modelWeight.goals': 'Goles (más/menos)',
+      'value.modelWeight.btts': 'Ambos anotan',
+      'value.modelWeight.result': '1X2, doble oportunidad y empate no apuesta',
+      'value.modelWeight.handicap': 'Hándicap asiático',
+      'value.modelWeight.firstGoal': 'Primer gol',
+      'value.modelWeight.halfTime': '1X2 del primer tiempo',
+      'value.modelWeight.corners': 'Corners',
+      'value.modelWeight.cards': 'Tarjetas',
+      'value.towardHalf.btts': 'Ambos anotan: cuánto se respeta la probabilidad (100 % = no acercar al 50 %)',
       'combos.minOdds': 'Cuota mínima por selección',
       'probable.minOdds': 'Más probables: cuota mínima por selección',
       'probable.minProbability': 'Más probables: probabilidad mínima',
