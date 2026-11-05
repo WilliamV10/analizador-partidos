@@ -6,7 +6,12 @@
 (function applySavedTheme() {
   try {
     var saved = localStorage.getItem('analizador.theme');
-    if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+    if (saved !== 'light' && saved !== 'dark') return;
+    document.documentElement.dataset.theme = saved;
+    // Barra del navegador del celular con el color del tema elegido (mismos colores que js/ui/theme.js).
+    var color = saved === 'dark' ? '#0a0e13' : '#f2f4f7';
+    var metas = document.querySelectorAll('meta[name="theme-color"]');
+    for (var i = 0; i < metas.length; i += 1) metas[i].setAttribute('content', color);
   } catch (error) {
     /* Sin acceso a localStorage: se usa el tema del sistema. */
   }

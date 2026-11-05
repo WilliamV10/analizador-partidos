@@ -9,23 +9,66 @@ import { TIERS } from '../../domain/value.js';
 import { TEXTS } from '../../texts.js';
 import { button, chips, growingList, notice, pageHead, sectionLabel, segmented, signed, stats } from '../components.js';
 import { h } from '../dom.js';
-import { odds, percent, signedPercent } from '../formatters.js';
-import { bestPick, dayTitle, inLeague, kickoffTime, leagueSelect, matchCard, pickName, tournamentLine, valuePicks } from './shared.js';
+import { kickoffParts, odds, percent, signedPercent } from '../formatters.js';
+import { bestPick, dayTitle, inLeague, kickoffDate, kickoffTime, leagueSelect, matchCard, pickName, tournamentLine, valuePicks } from './shared.js';
 
 /** Picks que aparecen en "Mejores picks del día". */
 const BEST_PICKS_SHOWN = 5;
 
 export const DAY_FILTERS = Object.freeze({ ALL: 'all', VALUE: 'value' });
 
+/** Con más horarios distintos que esto, los filtros se agrupan por franja (mañana, tarde, noche). */
+const MAX_TIME_CHIPS = 6;
+/** Franjas del día: desde qué hora empieza cada una (hora local). */
+const DAY_PARTS = [
+  { id: 'morning', from: 0 },
+  { id: 'afternoon', from: 12 },
+  { id: 'night', from: 18 },
+];
+
+function dayPartOf(time) {
+  const hour = Number(String(time).split(':')[0]);
+  return [...DAY_PARTS].reverse().find((part) => hour >= part.from)?.id ?? null;
+}
+
+/** "30/10" de un partido (para filtrar por día cuando hay varios). */
+const dayOf = (analysis) => kickoffParts(analysis.match.kickoff)?.date ?? null;
+
 function filterItems(analyses) {
+  const days = new Map();
+  analyses.forEach((analysis) => {
+    const day = dayOf(analysis);
+    if (day) days.set(day, (days.get(day) ?? 0) + 1);
+  });
+  // Con partidos de varios días, un filtro por día (en el orden en que se juegan).
+  const dayItems =
+    days.size > 1
+      ? [...days.keys()]
+          .sort((a, b) => {
+            const first = (day) => analyses.find((analysis) => dayOf(analysis) === day);
+            return kickoffDate(first(a).match.kickoff) - kickoffDate(first(b).match.kickoff);
+          })
+          .map((day) => {
+            const date = kickoffDate(analyses.find((analysis) => dayOf(analysis) === day).match.kickoff);
+            return { id: `day:${day}`, label: `${TEXTS.weekdaysShort[date.getDay()]} ${day} · ${days.get(day)}` };
+          })
+      : [];
   const times = new Map();
   analyses.forEach((analysis) => {
     const time = kickoffTime(analysis.match);
     if (time) times.set(time, (times.get(time) ?? 0) + 1);
   });
-  const timeItems = times.size > 1 ? [...times].sort().map(([time, count]) => ({ id: `time:${time}`, label: `${time} · ${count}` })) : [];
+  const parts = new Map();
+  times.forEach((count, time) => parts.set(dayPartOf(time), (parts.get(dayPartOf(time)) ?? 0) + count));
+  const exact = times.size > 1 && times.size <= MAX_TIME_CHIPS;
+  const timeItems = exact
+    ? [...times].sort().map(([time, count]) => ({ id: `time:${time}`, label: `${time} · ${count}` }))
+    : parts.size > 1
+      ? DAY_PARTS.filter((part) => parts.has(part.id)).map((part) => ({ id: `part:${part.id}`, label: `${TEXTS.day.parts[part.id]} · ${parts.get(part.id)}` }))
+      : [];
   return [
     { id: DAY_FILTERS.ALL, label: `${TEXTS.day.all} · ${analyses.length}` },
+    ...dayItems,
     ...timeItems,
     { id: DAY_FILTERS.VALUE, label: TEXTS.day.withValue },
   ];
@@ -34,6 +77,8 @@ function filterItems(analyses) {
 function applyFilter(analyses, filter) {
   if (filter === DAY_FILTERS.VALUE) return analyses.filter((analysis) => bestPick(analysis));
   if (filter?.startsWith('time:')) return analyses.filter((analysis) => kickoffTime(analysis.match) === filter.slice(5));
+  if (filter?.startsWith('day:')) return analyses.filter((analysis) => dayOf(analysis) === filter.slice(4));
+  if (filter?.startsWith('part:')) return analyses.filter((analysis) => dayPartOf(kickoffTime(analysis.match)) === filter.slice(5));
   return analyses;
 }
 

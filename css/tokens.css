@@ -1,14 +1,11 @@
 /*
  * Tokens de diseño: el ÚNICO lugar con colores, tipografías, radios y espacios.
- * Cada color se define una vez con light-dark(): el tema sigue al sistema y se
- * puede forzar con <html data-theme="light|dark"> (ver js/ui/theme.js).
- * El tema oscuro es el de la propuesta; el claro es su equivalente legible.
+ * El tema claro está en :root; el oscuro se aplica con el sistema en oscuro (salvo que se
+ * elija claro) o al forzarlo con <html data-theme="dark"> (ver js/ui/theme.js).
+ * No se usa light-dark(): los navegadores algo viejos no lo entienden y el tema fallaba.
+ * Al agregar un color con versión oscura, súmalo en los DOS bloques oscuros de abajo.
  */
 :root {
-  color-scheme: light dark;
-}
-
-:root[data-theme='light'] {
   color-scheme: light;
 }
 
@@ -16,68 +13,67 @@
   color-scheme: dark;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+  }
+}
+
 :root {
   /* Superficies: fondo → tarjeta → bloque dentro de tarjeta */
-  --bg: light-dark(#f2f4f7, #0a0e13);
-  --surface: light-dark(#ffffff, #121922);
-  --surface-2: light-dark(#f1f4f7, #19222d);
-  --surface-3: light-dark(#e3e8ee, #1f2935);
-  --overlay: light-dark(rgb(242 244 247 / 88%), rgb(10 14 19 / 88%));
-
+  --bg: #f2f4f7;
+  --surface: #ffffff;
+  --surface-2: #f1f4f7;
+  --surface-3: #e3e8ee;
+  --overlay: rgb(242 244 247 / 88%);
   /* Texto y bordes */
-  --text: light-dark(#0f1720, #ecf1f6);
-  --text-2: light-dark(#334150, #c3cdd8);
-  --muted: light-dark(#566475, #9aa8b8);
-  --faint: light-dark(#6b7887, #8291a3);
-  --border: light-dark(#dde3e9, #1f2935);
-  --border-strong: light-dark(#c6cfd8, #263241);
-
+  --text: #0f1720;
+  --text-2: #334150;
+  --muted: #566475;
+  --faint: #6b7887;
+  --border: #dde3e9;
+  --border-strong: #c6cfd8;
   /* Marca: --accent rellena (botón principal), --accent-ink es texto sobre la superficie */
   --accent: #c5f23a;
   --accent-hover: #d6ff5c;
-  --accent-ink: light-dark(#3f6b00, #c5f23a);
-  --accent-soft: light-dark(#eef9cc, #1a2416);
-  --accent-border: light-dark(#a9d42a, #3b4a1a);
+  --accent-ink: #3f6b00;
+  --accent-soft: #eef9cc;
+  --accent-border: #a9d42a;
   --on-accent: #0a0e13;
-  --focus: light-dark(#3f6b00, #e3ff8a);
-
+  --focus: #3f6b00;
   /* Equipos y resultado */
-  --home: light-dark(#2f6fdb, #5b9bff);
-  --away: light-dark(#d9730d, #ff9f43);
-  --draw: light-dark(#8a97a6, #8a97a6);
-  --positive: light-dark(#3f6b00, #c5f23a);
-  --negative: light-dark(#c63030, #ff8a8a);
-  --win: light-dark(#14804a, #3ddc97);
-  --win-soft: light-dark(#dcf5e8, #11291d);
-  --loss: light-dark(#c63030, #ff8a8a);
-  --loss-soft: light-dark(#fbe3e3, #33181a);
-  --neutral-soft: light-dark(#e9edf1, #232b34);
-
+  --home: #2f6fdb;
+  --away: #d9730d;
+  --draw: #8a97a6;
+  --positive: #3f6b00;
+  --negative: #c63030;
+  --win: #14804a;
+  --win-soft: #dcf5e8;
+  --loss: #c63030;
+  --loss-soft: #fbe3e3;
+  --neutral-soft: #e9edf1;
   /* Niveles de confianza */
-  --tier-high: light-dark(#14804a, #3ddc97);
-  --tier-high-bg: light-dark(#dcf5e8, #11291d);
+  --tier-high: #14804a;
+  --tier-high-bg: #dcf5e8;
   --tier-medium: #f6b93b;
   --tier-medium-ink: #2a2112;
-  --tier-low: light-dark(#2f6fdb, #6ca6ff);
-  --tier-low-ink: light-dark(#ffffff, #0a0e13);
-  --tier-none: light-dark(#e9edf1, #232b34);
-  --tier-none-ink: light-dark(#566475, #9aa8b8);
-
+  --tier-low: #2f6fdb;
+  --tier-low-ink: #ffffff;
+  --tier-none: #e9edf1;
+  --tier-none-ink: #566475;
   /* Mensajes */
-  --warning: light-dark(#8a5a00, #f7d28a);
-  --warning-bg: light-dark(#fff4dc, #2a2112);
-  --warning-border: light-dark(#f0c36a, #4a3a1a);
-  --info: light-dark(#1d4f9c, #a9c8ff);
-  --info-bg: light-dark(#e6effd, #16233a);
-  --error: light-dark(#b42318, #ff8a8a);
-  --success: light-dark(#14804a, #6ee7a8);
-
+  --warning: #8a5a00;
+  --warning-bg: #fff4dc;
+  --warning-border: #f0c36a;
+  --info: #1d4f9c;
+  --info-bg: #e6effd;
+  --error: #b42318;
+  --success: #14804a;
   /* Posiciones de jugador */
-  --pos-g: light-dark(#b7791f, #f6b93b);
-  --pos-d: light-dark(#2f6fdb, #5b9bff);
-  --pos-m: light-dark(#14804a, #3ddc97);
-  --pos-f: light-dark(#c63030, #ff8a8a);
-
+  --pos-g: #b7791f;
+  --pos-d: #2f6fdb;
+  --pos-m: #14804a;
+  --pos-f: #c63030;
   /* Tipografía */
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
@@ -107,5 +103,99 @@
   --content-max: 1440px;
   --sidebar-width: 300px;
   --transition: 150ms ease;
-  --shadow: light-dark(0 1px 3px rgb(15 23 42 / 8%), 0 1px 2px rgb(0 0 0 / 30%));
+  --shadow: 0 1px 3px rgb(15 23 42 / 8%);
+}
+
+/* ---------- Tema oscuro ---------- */
+
+:root[data-theme='dark'] {
+  --bg: #0a0e13;
+  --surface: #121922;
+  --surface-2: #19222d;
+  --surface-3: #1f2935;
+  --overlay: rgb(10 14 19 / 88%);
+  --text: #ecf1f6;
+  --text-2: #c3cdd8;
+  --muted: #9aa8b8;
+  --faint: #8291a3;
+  --border: #1f2935;
+  --border-strong: #263241;
+  --accent-ink: #c5f23a;
+  --accent-soft: #1a2416;
+  --accent-border: #3b4a1a;
+  --focus: #e3ff8a;
+  --home: #5b9bff;
+  --away: #ff9f43;
+  --positive: #c5f23a;
+  --negative: #ff8a8a;
+  --win: #3ddc97;
+  --win-soft: #11291d;
+  --loss: #ff8a8a;
+  --loss-soft: #33181a;
+  --neutral-soft: #232b34;
+  --tier-high: #3ddc97;
+  --tier-high-bg: #11291d;
+  --tier-low: #6ca6ff;
+  --tier-low-ink: #0a0e13;
+  --tier-none: #232b34;
+  --tier-none-ink: #9aa8b8;
+  --warning: #f7d28a;
+  --warning-bg: #2a2112;
+  --warning-border: #4a3a1a;
+  --info: #a9c8ff;
+  --info-bg: #16233a;
+  --error: #ff8a8a;
+  --success: #6ee7a8;
+  --pos-g: #f6b93b;
+  --pos-d: #5b9bff;
+  --pos-m: #3ddc97;
+  --pos-f: #ff8a8a;
+  --shadow: 0 1px 2px rgb(0 0 0 / 30%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0a0e13;
+    --surface: #121922;
+    --surface-2: #19222d;
+    --surface-3: #1f2935;
+    --overlay: rgb(10 14 19 / 88%);
+    --text: #ecf1f6;
+    --text-2: #c3cdd8;
+    --muted: #9aa8b8;
+    --faint: #8291a3;
+    --border: #1f2935;
+    --border-strong: #263241;
+    --accent-ink: #c5f23a;
+    --accent-soft: #1a2416;
+    --accent-border: #3b4a1a;
+    --focus: #e3ff8a;
+    --home: #5b9bff;
+    --away: #ff9f43;
+    --positive: #c5f23a;
+    --negative: #ff8a8a;
+    --win: #3ddc97;
+    --win-soft: #11291d;
+    --loss: #ff8a8a;
+    --loss-soft: #33181a;
+    --neutral-soft: #232b34;
+    --tier-high: #3ddc97;
+    --tier-high-bg: #11291d;
+    --tier-low: #6ca6ff;
+    --tier-low-ink: #0a0e13;
+    --tier-none: #232b34;
+    --tier-none-ink: #9aa8b8;
+    --warning: #f7d28a;
+    --warning-bg: #2a2112;
+    --warning-border: #4a3a1a;
+    --info: #a9c8ff;
+    --info-bg: #16233a;
+    --error: #ff8a8a;
+    --success: #6ee7a8;
+    --pos-g: #f6b93b;
+    --pos-d: #5b9bff;
+    --pos-m: #3ddc97;
+    --pos-f: #ff8a8a;
+    --shadow: 0 1px 2px rgb(0 0 0 / 30%);
+  }
 }

@@ -4,9 +4,12 @@
  * También el tema de la página.
  */
 import { SETTING_GROUPS, readPath } from '../../app/settings.js';
+import { CONFIG } from '../../config.js';
+import { suggestModelWeights } from '../../domain/calibration.js';
 import { TEXTS } from '../../texts.js';
-import { button, card, note, pageHead, segmented } from '../components.js';
+import { button, card, dataTable, note, pageHead, segmented } from '../components.js';
 import { h } from '../dom.js';
+import { percent } from '../formatters.js';
 
 const PERCENT = 100;
 /** Grupos que se muestran como casillas numéricas en vez de deslizadores. */
@@ -84,14 +87,51 @@ function switchField(field, value, onSave) {
   );
 }
 
-function groupCard(group, config, onSave) {
+function groupCard(group, config, onSave, extra = null) {
   const asInputs = INPUT_GROUPS.has(group.id);
   const controls = group.fields.map((field) => {
     const value = readPath(config, field.path);
     if (field.kind === 'boolean') return switchField(field, value, onSave);
     return asInputs ? inputField(field, value, onSave) : sliderField(field, value, onSave);
   });
-  return card({ label: TEXTS.settings.groups[group.id] }, asInputs ? h('div', { class: 'settings-grid' }, controls) : controls);
+  const groupNote = TEXTS.settings.groupNotes[group.id];
+  return card(
+    { label: TEXTS.settings.groups[group.id] },
+    groupNote ? note(groupNote) : null,
+    asInputs ? h('div', { class: 'settings-grid' }, controls) : controls,
+    extra,
+  );
+}
+
+/** Pesos por mercado sugeridos con el historial, con un botón para aplicarlos todos. */
+function calibrationCard(records, config, onApply) {
+  const texts = TEXTS.settings.calibration;
+  const rows = suggestModelWeights(records, config.value, CONFIG.value.modelWeight);
+  const usable = rows.filter((row) => row.suggested !== null);
+  if (!usable.length) return card({ label: texts.title }, note(texts.empty));
+  const changes = Object.fromEntries(usable.filter((row) => row.suggested !== row.current).map((row) => [`value.modelWeight.${row.group}`, row.suggested]));
+  return card(
+    { label: texts.title },
+    note(texts.intro(usable.reduce((sum, row) => sum + row.count, 0))),
+    dataTable({
+      variant: 'summary',
+      head: [
+        { label: texts.columns.group },
+        { label: texts.columns.current, numeric: true },
+        { label: texts.columns.suggested, numeric: true },
+        { label: texts.columns.count, numeric: true },
+      ],
+      rows: rows.map((row) => ({
+        cells: [
+          TEXTS.settings.fields[`value.modelWeight.${row.group}`] ?? row.group,
+          percent(row.current),
+          row.suggested === null ? h('span', { class: 'muted' }, texts.fewData) : h('strong', { class: row.suggested !== row.current ? 'tone-accent' : '' }, percent(row.suggested)),
+          row.count,
+        ],
+      })),
+    }),
+    button({ label: texts.apply, variant: 'soft block', disabled: !Object.keys(changes).length, onClick: () => onApply(changes) }),
+  );
 }
 
 /**
@@ -104,7 +144,14 @@ export function renderSettings(state, actions) {
     h(
       'div',
       { class: 'grid' },
-      SETTING_GROUPS.map((group) => groupCard(group, state.config, actions.saveSetting)),
+      SETTING_GROUPS.map((group) =>
+        groupCard(
+          group,
+          state.config,
+          actions.saveSetting,
+          group.id === 'marketWeights' ? calibrationCard(state.history.records, state.config, actions.saveSettings) : null,
+        ),
+      ),
       card(
         { label: TEXTS.settings.theme },
         segmented(

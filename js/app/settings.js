@@ -43,6 +43,19 @@ export const SETTING_GROUPS = Object.freeze([
     ],
   },
   {
+    id: 'marketWeights',
+    fields: [
+      ...['goals', 'btts', 'result', 'handicap', 'firstGoal', 'halfTime', 'corners', 'cards'].map((group) => ({
+        path: `value.modelWeight.${group}`,
+        kind: 'percent',
+        min: 0,
+        max: 1,
+        step: 0.05,
+      })),
+      { path: 'value.towardHalf.btts', kind: 'percent', min: 0.3, max: 1, step: 0.05 },
+    ],
+  },
+  {
     id: 'combos',
     fields: [
       { path: 'combos.minOdds', kind: 'number', min: 1.01, max: 3, step: 0.05 },

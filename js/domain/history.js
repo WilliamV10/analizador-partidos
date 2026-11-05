@@ -69,6 +69,8 @@ export function pickRecord(match, pick, now, origin = RECORD_ORIGINS.LIVE) {
     selection: pick.key,
     odds: pick.odds,
     probability: pick.probability,
+    // La del modelo antes de mezclarla con la casa: con ella se recalculan los pesos (domain/calibration.js).
+    modelProbability: pick.modelProbability ?? null,
     fairProbability: pick.fairProbability,
     ev: pick.ev,
     tier: pick.tier,
