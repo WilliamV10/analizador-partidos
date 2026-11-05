@@ -1,17 +1,19 @@
 /**
  * Armador del script de Sofascore (pantalla de carga): se eligen las ligas (cada una con su
- * horario, si se quiere), el día y el modo, y "Copiar script" copia el script completo ya
- * configurado (app/scriptBuilder.js). Pensado para el celular: no hay que editar nada a mano.
+ * horario, si se quiere), el día y el modo, y "Copiar script" copia el script ya configurado en
+ * una sola línea corta (app/scriptBuilder.js), para la consola o como marcador "javascript:".
+ * Pensado para el celular: no hay que editar nada a mano.
  * Lo elegido se recuerda en este navegador.
  */
-import { buildSofascoreScript } from '../app/scriptBuilder.js';
+import { buildSofascoreBookmarklet, buildSofascoreScript } from '../app/scriptBuilder.js';
 import { TEXTS } from '../texts.js';
 import { button, iconButton, segmented, selectField } from './components.js';
 import { h, replaceContent } from './dom.js';
 import { readJsonPreference, writeJsonPreference } from './preferences.js';
 
 const STORAGE_KEY = 'analizador.scriptBuilder';
-const SCRIPT_URL = 'scripts/sofascore_multi_v5.js';
+/** El v5 minificado (se genera con node scripts/generar_script_min.mjs). */
+const SCRIPT_URL = 'scripts/sofascore_v5.min.js';
 
 /** Ligas que se ofrecen al escribir (Sofascore las encuentra por nombre). */
 const SUGGESTED_LEAGUES = [
@@ -129,7 +131,7 @@ export function bindScriptBuilder(root, { copyText }) {
     return null;
   };
 
-  async function copyScript() {
+  async function copyScript(asBookmarklet = false) {
     try {
       if (!options.leagues.some((league) => String(league.name ?? '').trim())) {
         status.textContent = texts.needLeague;
@@ -142,10 +144,11 @@ export function bindScriptBuilder(root, { copyText }) {
         if (!response.ok) throw new Error(String(response.status));
         return response.text();
       });
-      const stamp = new Date().toLocaleString();
-      const script = buildSofascoreScript(source, { ...options, date: options.date || today() }, stamp);
-      status.textContent = '';
-      await copyText(script, texts.copied);
+      const chosen = { ...options, date: options.date || today() };
+      const script = asBookmarklet ? buildSofascoreBookmarklet(source, chosen) : buildSofascoreScript(source, chosen);
+      status.textContent = texts.size((script.length / 1024).toFixed(1));
+      status.dataset.kind = 'info';
+      await copyText(script, asBookmarklet ? texts.copiedBookmarklet : texts.copied);
     } catch (error) {
       source = null;
       status.textContent = texts.failed(error?.message ?? String(error));
@@ -204,7 +207,8 @@ export function bindScriptBuilder(root, { copyText }) {
           timeInput(options.to, texts.leagueTo, (to) => set({ to })),
         ),
       ),
-      button({ label: texts.copy, icon: 'copy', variant: 'primary lg block', onClick: copyScript }),
+      button({ label: texts.copy, icon: 'copy', variant: 'primary lg block', onClick: () => copyScript(false) }),
+      button({ label: texts.copyBookmarklet, icon: 'copy', variant: 'soft block', onClick: () => copyScript(true) }),
       status,
       h('ol', { class: 'note script-builder__steps' }, texts.steps.map((step) => h('li', {}, step))),
     );
