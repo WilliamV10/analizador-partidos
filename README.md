@@ -6,7 +6,7 @@ Página web estática que analiza el JSON exportado por los scripts de Sofascore
 
 ## Uso
 
-1. Corre el script de Sofascore y guarda el JSON: v2 para un partido, **liga** (`scripts/sofascore_liga.js`) para los partidos de una o varias ligas en un día, cada una con su horario (ej. `['Premier League 09:00-12:00', 'MLS 18:00-23:30']`), v4 para varios de una competición, o **v5 para muchos partidos de varias competiciones** (también con filtro de fecha y hora). El v5 tiene un modo **histórico**: descarga partidos ya jugados con su resultado para medir el modelo al instante (en el Historial aparecen con origen "Histórico").
+1. Corre el script de Sofascore y guarda el JSON. Lo más fácil, sobre todo en el celular: en la pantalla de carga, **Crear el script de Sofascore** te deja elegir ligas, horarios y día, y copia el script listo para pegar en la consola. También puedes usar los archivos de `scripts/`: v2 para un partido, **liga** (`scripts/sofascore_liga.js`) para los partidos de una o varias ligas en un día, cada una con su horario (ej. `['Premier League 09:00-12:00', 'MLS 18:00-23:30']`), v4 para varios de una competición, o **v5 para muchos partidos de varias competiciones** (también con filtro de fecha y hora). El v5 tiene un modo **histórico**: descarga partidos ya jugados con su resultado para medir el modelo al instante (en el Historial aparecen con origen "Histórico").
 2. Abre la página, pega el JSON o sube uno o varios archivos, y pulsa **Analizar**.
    Lo cargado se guarda en el navegador: al volver a abrir la página se recupera solo. **Limpiar** lo borra.
 3. (Opcional) En **Contexto**, copia el resumen, pásaselo a Claude y pega el bloque que devuelve para recalcular con noticias, bajas y rotaciones.

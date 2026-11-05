@@ -24,6 +24,7 @@ import { downloadText } from './ui/download.js';
 import { createHistoryController } from './ui/historyController.js';
 import { hydrateIcons, icon } from './ui/icons.js';
 import { bindLoader } from './ui/loaderPanel.js';
+import { bindScriptBuilder } from './ui/scriptBuilderPanel.js';
 import { SCREENS, renderNavigation, resolveScreen } from './ui/navigation.js';
 import { readJsonPreference, removePreference, writeJsonPreference } from './ui/preferences.js';
 import { COMBO_MODES, renderCombo } from './ui/screens/combo.js';
@@ -112,12 +113,12 @@ function describeError(error) {
 }
 
 /** Copia al portapapeles; si el navegador no deja, descarga el texto como archivo. */
-async function copyText(text, successMessage) {
+async function copyText(text, successMessage, fallbackName = 'texto_analizador.txt') {
   try {
     await navigator.clipboard.writeText(text);
     toast(successMessage);
   } catch {
-    downloadText('texto_analizador.txt', text, 'text/plain');
+    downloadText(fallbackName, text, 'text/plain');
     toast(TEXTS.app.copyFallback, 'error');
   }
 }
@@ -347,6 +348,10 @@ const loader = bindLoader(document.getElementById('screen-load'), {
     clearContextInput();
   },
   onOpenLast: () => navigate(SCREENS.DAY),
+});
+
+bindScriptBuilder(document.querySelector('[data-script-builder]'), {
+  copyText: (text, message) => copyText(text, message, 'script_sofascore.js'),
 });
 
 /** Si había datos cargados antes de cerrar la página, se vuelven a analizar (con su bloque de Claude). */
