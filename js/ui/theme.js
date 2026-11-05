@@ -1,7 +1,8 @@
 /**
- * Tema de la página: sistema (auto), claro u oscuro. El CSS resuelve los colores con
- * light-dark(); aquí solo se fija data-theme en <html> y se recuerda la elección.
- * La clave debe coincidir con la de js/themeInit.js (que lo aplica antes de pintar).
+ * Tema de la página: sistema (auto), claro u oscuro. El CSS tiene los colores claros en :root
+ * y los oscuros según data-theme o el sistema (css/tokens.css); aquí se fija data-theme en
+ * <html>, el color de la barra del navegador del celular y se recuerda la elección.
+ * La clave y los colores deben coincidir con los de js/themeInit.js (que lo aplica antes de pintar).
  */
 import { readPreference, writePreference } from './preferences.js';
 
@@ -9,9 +10,21 @@ export const THEME_STORAGE_KEY = 'analizador.theme';
 
 export const THEMES = Object.freeze(['dark', 'light', 'auto']);
 
+/** Color de la barra del navegador (igual a --bg de cada tema). */
+const BAR_COLORS = Object.freeze({ light: '#f2f4f7', dark: '#0a0e13' });
+
+/** Con un tema elegido, las dos etiquetas theme-color usan su color; en "sistema", cada una el suyo. */
+function paintBrowserBar(theme) {
+  document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+    const own = meta.media.includes('dark') ? BAR_COLORS.dark : BAR_COLORS.light;
+    meta.content = theme === 'auto' ? own : BAR_COLORS[theme];
+  });
+}
+
 function applyTheme(theme) {
   if (theme === 'auto') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = theme;
+  paintBrowserBar(theme);
 }
 
 export function readTheme() {
