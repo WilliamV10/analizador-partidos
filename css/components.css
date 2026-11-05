@@ -2564,3 +2564,44 @@
     font-size: 9px;
   }
 }
+
+/* ---------- Armador del script de Sofascore (pantalla de carga) ---------- */
+
+.script-builder__league {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.script-builder__hours {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.script-builder__hours .input--time {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (min-width: 560px) {
+  .script-builder__hours .input--time {
+    flex: 0 1 140px;
+  }
+}
+
+.script-builder__steps {
+  display: grid;
+  gap: var(--space-1);
+  padding-left: var(--space-4);
+}
+
+@media (max-width: 559px) {
+  .script-builder__league {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

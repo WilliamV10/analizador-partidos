@@ -36,6 +36,8 @@ Sofascore (navegador)                Página (navegador)                 Claude 
                                     10. Recalcula con el contexto
 ```
 
+**Armador del script (pantalla de carga):** "Crear el script de Sofascore" deja elegir partidos por jugar o ya jugados, el día (hoy, mañana, ayer, una fecha o varios días), el máximo de partidos y las ligas, cada una con su horario opcional (y un horario general para las demás). "Copiar script" baja `scripts/sofascore_multi_v5.js` del mismo sitio, le pone esos valores en CONFIGURACION y le quita los comentarios de línea entera (`app/scriptBuilder.js`), y lo copia; si el navegador no deja copiar, lo descarga como `script_sofascore.js`. Lo elegido se recuerda en el navegador (`ui/scriptBuilderPanel.js`). Pensado para el celular, donde copiar y editar el archivo entero es incómodo.
+
 **Scripts de Sofascore** (están en `scripts/`: `sofascore_liga.js`, `sofascore_multi_v5.js`, `sofascore_multi_v4.js` y `sofascore_partido_v2.js`):
 
 - **v2:** un partido. Imprime el JSON en consola (`copy(JSON.stringify(window._sofa))`).

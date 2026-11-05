@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { parseAbsence, parseLineupPlayer, parseStandingLine } from '../js/adapters/common.js';
 import { IMPORT_MODES, importMatches } from '../js/app/importMatches.js';
+import { buildSofascoreScript, configValues } from '../js/app/scriptBuilder.js';
 import { detectFormat } from '../js/io/formatDetector.js';
 import { IMPORT_ERRORS, ImportError } from '../js/io/importError.js';
 import { rawMulti, rawSingle } from './fixtures/rawFactory.js';
@@ -72,5 +73,58 @@ describe('lectores de texto del script', () => {
     assert.deepEqual(parseLineupPlayer('Camilo Vargas (G)'), { name: 'Camilo Vargas', position: 'G' });
     assert.deepEqual(parseAbsence('Duk - missing: Knee Injury'), { name: 'Duk', status: 'missing', reason: 'Knee Injury' });
     assert.equal(parseStandingLine('1. Club América 24pts PJ11 7-3-1 GF27 GC14').goalsFor, 27);
+  });
+});
+
+describe('buildSofascoreScript', () => {
+  const source = [
+    '// encabezado largo',
+    '{ // bloque',
+    '// ---------- CONFIGURACION ----------',
+    "const TORNEOS = ['Premier League']; // comentario",
+    "const MODO = 'proximos';",
+    'const DIAS = 2;',
+    'const FECHA = null;',
+    'const HORA_DESDE = null;',
+    'const HORA_HASTA = null;',
+    'const MAX_PARTIDOS = 80;',
+    'const PETICIONES_POR_SEGUNDO = 6; // ritmo',
+    'const SOLO_LISTAR = false;',
+    'const DESCARGAR = true;',
+    '',
+    '(async () => {',
+    '  // comentario interno',
+    "  window._resultado = { TORNEOS, MODO, DIAS, FECHA, HORA_DESDE, HORA_HASTA, MAX_PARTIDOS, PETICIONES_POR_SEGUNDO };",
+    '})();',
+    '}',
+  ].join('\n');
+
+  it('pone las ligas con su horario, el día y el modo, y deja el resto igual', () => {
+    const script = buildSofascoreScript(source, {
+      mode: 'historico',
+      day: 'fecha',
+      date: '2026-11-08',
+      leagues: [{ name: "MLS", from: '18:00', to: '23:30' }, { name: '17' }, { name: '  ' }],
+      from: '14:00',
+      to: '',
+      maxMatches: 30,
+    });
+    const window = {};
+    new Function('window', script)(window);
+    assert.deepEqual(window._resultado, {
+      TORNEOS: [{ liga: 'MLS', desde: '18:00', hasta: '23:30' }, 17],
+      MODO: 'historico',
+      DIAS: 0,
+      FECHA: '2026-11-08',
+      HORA_DESDE: '14:00',
+      HORA_HASTA: null,
+      MAX_PARTIDOS: 30,
+      PETICIONES_POR_SEGUNDO: 6,
+    });
+    assert.ok(!script.includes('comentario interno'));
+  });
+
+  it('escapa comillas en los nombres', () => {
+    assert.equal(configValues({ leagues: [{ name: "Ligue d'or" }] }).TORNEOS, "['Ligue d\\'or']");
   });
 });
