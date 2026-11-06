@@ -34,13 +34,16 @@ export const TEXTS = Object.freeze({
     copy: 'Copiar script',
     preparing: 'Preparando el script…',
     copied: 'Script copiado: pégalo en la consola de sofascore.com.',
+    copyBookmarklet: 'Copiar como marcador (javascript:)',
+    copiedBookmarklet: 'Marcador copiado: guárdalo como favorito y ábrelo estando en sofascore.com.',
+    size: (kb) => `Copiado: ${kb} KB en una sola línea.`,
     needLeague: 'Agrega al menos una liga.',
     failed: (reason) => `No se pudo armar el script (${reason}). Revisa la conexión y prueba de nuevo.`,
     steps: [
-      'Toca «Copiar script».',
-      'Abre sofascore.com y su consola (en la computadora, F12 → Console; en el celular, el navegador con consola que ya usas).',
-      'Pega y dale Enter: al terminar se descarga el .json.',
-      'Súbelo aquí abajo y toca Analizar.',
+      'Con consola: toca «Copiar script», abre sofascore.com, pégalo en la consola (en la computadora, F12 → Console) y dale Enter.',
+      'Sin consola (celular): toca «Copiar como marcador», crea un favorito cualquiera y pega lo copiado en su dirección (URL). ' +
+        'Luego, estando en sofascore.com, abre ese favorito escribiendo su nombre en la barra de direcciones y eligiéndolo de la lista.',
+      'Al terminar se descarga el .json: súbelo aquí abajo y toca Analizar.',
     ],
   },
   recentChart: {

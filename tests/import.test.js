@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { parseAbsence, parseLineupPlayer, parseStandingLine } from '../js/adapters/common.js';
 import { IMPORT_MODES, importMatches } from '../js/app/importMatches.js';
-import { buildSofascoreScript, configValues } from '../js/app/scriptBuilder.js';
+import { readFileSync } from 'node:fs';
+import { buildSofascoreBookmarklet, buildSofascoreScript } from '../js/app/scriptBuilder.js';
 import { detectFormat } from '../js/io/formatDetector.js';
 import { IMPORT_ERRORS, ImportError } from '../js/io/importError.js';
 import { rawMulti, rawSingle } from './fixtures/rawFactory.js';
@@ -77,54 +78,43 @@ describe('lectores de texto del script', () => {
 });
 
 describe('buildSofascoreScript', () => {
-  const source = [
-    '// encabezado largo',
-    '{ // bloque',
-    '// ---------- CONFIGURACION ----------',
-    "const TORNEOS = ['Premier League']; // comentario",
-    "const MODO = 'proximos';",
-    'const DIAS = 2;',
-    'const FECHA = null;',
-    'const HORA_DESDE = null;',
-    'const HORA_HASTA = null;',
-    'const MAX_PARTIDOS = 80;',
-    'const PETICIONES_POR_SEGUNDO = 6; // ritmo',
-    'const SOLO_LISTAR = false;',
-    'const DESCARGAR = true;',
-    '',
-    '(async () => {',
-    '  // comentario interno',
-    "  window._resultado = { TORNEOS, MODO, DIAS, FECHA, HORA_DESDE, HORA_HASTA, MAX_PARTIDOS, PETICIONES_POR_SEGUNDO };",
-    '})();',
-    '}',
-  ].join('\n');
+  // Igual que el minificado real: (CFG=>{...})(__CFG__);
+  const minified = "(CFG=>{window._resultado=CFG;console.log('%c[sofa]','color:red')})(__CFG__);";
 
-  it('pone las ligas con su horario, el día y el modo, y deja el resto igual', () => {
-    const script = buildSofascoreScript(source, {
+  it('pone las ligas con su horario, el día y el modo en una sola línea', () => {
+    const script = buildSofascoreScript(minified, {
       mode: 'historico',
       day: 'fecha',
       date: '2026-11-08',
-      leagues: [{ name: "MLS", from: '18:00', to: '23:30' }, { name: '17' }, { name: '  ' }],
+      leagues: [{ name: "Ligue d'or", from: '18:00', to: '23:30' }, { name: '17' }, { name: '  ' }],
       from: '14:00',
       to: '',
       maxMatches: 30,
     });
+    assert.ok(!script.includes('\n'));
     const window = {};
-    new Function('window', script)(window);
+    new Function('window', 'console', script)(window, { log() {} });
     assert.deepEqual(window._resultado, {
-      TORNEOS: [{ liga: 'MLS', desde: '18:00', hasta: '23:30' }, 17],
+      TORNEOS: [{ liga: "Ligue d'or", desde: '18:00', hasta: '23:30' }, 17],
       MODO: 'historico',
-      DIAS: 0,
       FECHA: '2026-11-08',
+      DIAS: 0,
       HORA_DESDE: '14:00',
       HORA_HASTA: null,
       MAX_PARTIDOS: 30,
-      PETICIONES_POR_SEGUNDO: 6,
     });
-    assert.ok(!script.includes('comentario interno'));
   });
 
-  it('escapa comillas en los nombres', () => {
-    assert.equal(configValues({ leagues: [{ name: "Ligue d'or" }] }).TORNEOS, "['Ligue d\\'or']");
+  it('como marcador: empieza con javascript: y escribe el % como %25', () => {
+    const bookmarklet = buildSofascoreBookmarklet(minified, { mode: 'proximos', day: 'hoy', leagues: [{ name: 'MLS' }] });
+    assert.ok(bookmarklet.startsWith('javascript:'));
+    assert.ok(bookmarklet.includes("'%25c[sofa]'"));
+    assert.equal(decodeURIComponent(bookmarklet.slice('javascript:'.length)).includes("'%c[sofa]'"), true);
+  });
+
+  it('el minificado real tiene dónde poner la configuración y es JavaScript válido', () => {
+    const real = readFileSync(new URL('../scripts/sofascore_v5.min.js', import.meta.url), 'utf8');
+    assert.equal(real.trim().split('\n').length, 1);
+    new Function(buildSofascoreScript(real, { mode: 'proximos', day: 'hoy', leagues: [{ name: 'MLS' }] }));
   });
 });

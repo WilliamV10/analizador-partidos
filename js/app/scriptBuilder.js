@@ -1,15 +1,16 @@
 /**
  * Caso de uso: armar el script de Sofascore con lo elegido en la página (ligas, horario de
- * cada una, día, modo), listo para copiar y pegar en la consola. Sirve sobre todo en el
- * celular, donde copiar el archivo entero y editarlo a mano es incómodo.
+ * cada una, día, modo), listo para copiar y pegar. Sirve sobre todo en el celular: el script
+ * sale en UNA línea corta (el v5 minificado, scripts/sofascore_v5.min.js) que entra completa
+ * en el portapapeles.
  *
- * Parte del script v5 (scripts/sofascore_multi_v5.js): cambia solo los valores de su bloque
- * CONFIGURACION y quita los comentarios de línea entera para que pese menos. El motor
- * (cuidado con Sofascore, JSON de salida) es el mismo.
+ * El minificado es  (CFG=>{...})(__CFG__) : aquí solo se cambia __CFG__ por un objeto con lo
+ * elegido; lo demás usa los valores de CONFIGURACION del v5. Dos formatos:
+ *  - consola: se pega en la consola de sofascore.com;
+ *  - marcador: "javascript:..." para guardarlo como favorito y abrirlo estando en sofascore.com.
  */
 
-const CONFIG_START = '// ---------- CONFIGURACION ----------';
-const ENGINE_START = '(async () => {';
+const CFG_PLACEHOLDER = '__CFG__';
 
 /**
  * @typedef {Object} ScriptOptions
@@ -24,68 +25,50 @@ const ENGINE_START = '(async () => {';
  */
 
 const HOUR = /^\d{1,2}:\d{2}$/;
-const quote = (text) => `'${String(text).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
-const hourOrNull = (value) => (HOUR.test(String(value ?? '').trim()) ? quote(String(value).trim()) : 'null');
+const hourOrNull = (value) => (HOUR.test(String(value ?? '').trim()) ? String(value).trim() : null);
 
-/** Una liga como la entiende el script: 'MLS 18:00-23:30', 'Premier League' o un id (17). */
+/** Una liga como la entiende el script: 'Premier League', 17 o { liga, desde, hasta }. */
 function leagueEntry({ name, from, to }) {
   const clean = String(name ?? '').trim();
   const reference = /^\d+$/.test(clean) ? Number(clean) : clean;
-  const hasFrom = HOUR.test(String(from ?? '').trim());
-  const hasTo = HOUR.test(String(to ?? '').trim());
-  if (!hasFrom && !hasTo) return typeof reference === 'number' ? String(reference) : quote(reference);
-  return `{ liga: ${typeof reference === 'number' ? reference : quote(reference)}, desde: ${hourOrNull(from)}, hasta: ${hourOrNull(to)} }`;
+  const desde = hourOrNull(from);
+  const hasta = hourOrNull(to);
+  return desde || hasta ? { liga: reference, desde, hasta } : reference;
 }
 
-/** Valores de CONFIGURACION que cambian según lo elegido (el resto queda como en el v5). */
+/**
+ * Valores de CONFIGURACION según lo elegido (los que no están aquí quedan como en el v5).
+ * @param {ScriptOptions} options
+ */
 export function configValues(options) {
-  const leagues = (options.leagues ?? []).filter((league) => String(league.name ?? '').trim());
   const fixedDay = { hoy: 'hoy', manana: 'manana', ayer: 'ayer' }[options.day];
   return {
-    TORNEOS: `[${leagues.map(leagueEntry).join(', ')}]`,
-    MODO: quote(options.mode === 'historico' ? 'historico' : 'proximos'),
-    FECHA: fixedDay ? quote(fixedDay) : options.day === 'fecha' && /^\d{4}-\d{2}-\d{2}$/.test(options.date ?? '') ? quote(options.date) : 'null',
-    DIAS: String(options.day === 'dias' ? Math.max(0, Math.min(14, Math.round(Number(options.days) || 0))) : 0),
+    TORNEOS: (options.leagues ?? []).filter((league) => String(league.name ?? '').trim()).map(leagueEntry),
+    MODO: options.mode === 'historico' ? 'historico' : 'proximos',
+    FECHA: fixedDay ?? (options.day === 'fecha' && /^\d{4}-\d{2}-\d{2}$/.test(options.date ?? '') ? options.date : null),
+    DIAS: options.day === 'dias' ? Math.max(0, Math.min(14, Math.round(Number(options.days) || 0))) : 0,
     HORA_DESDE: hourOrNull(options.from),
     HORA_HASTA: hourOrNull(options.to),
-    MAX_PARTIDOS: String(Math.max(1, Math.min(150, Math.round(Number(options.maxMatches) || 40)))),
-    DESCARGAR: 'true',
-    SOLO_LISTAR: 'false',
+    MAX_PARTIDOS: Math.max(1, Math.min(150, Math.round(Number(options.maxMatches) || 40))),
   };
 }
 
 /**
- * @param {string} source   texto de scripts/sofascore_multi_v5.js
+ * Script para pegar en la consola: una sola línea.
+ * @param {string} minified  texto de scripts/sofascore_v5.min.js
  * @param {ScriptOptions} options
- * @param {string} [stamp]  fecha para el encabezado
- * @returns {string}
  */
-export function buildSofascoreScript(source, options, stamp = '') {
-  const start = source.indexOf('{ // bloque');
-  const configStart = source.indexOf(CONFIG_START);
-  const engineStart = source.indexOf(ENGINE_START, configStart);
-  if (start < 0 || configStart < 0 || engineStart < 0) throw new Error('El script v5 cambió: no encuentro su configuración.');
-  const values = configValues(options);
-  const config = source
-    .slice(configStart + CONFIG_START.length, engineStart)
-    .split('\n')
-    .map((line) => {
-      const match = line.match(/^const (\w+) = /);
-      if (!match) return line.trim().startsWith('//') ? null : line;
-      const value = values[match[1]] ?? line.slice(match[0].length).replace(/;\s*(\/\/.*)?$/, '');
-      return `const ${match[1]} = ${value};`;
-    })
-    .filter((line) => line !== null && line.trim() !== '');
-  const engine = source
-    .slice(engineStart)
-    .split('\n')
-    .filter((line) => !line.trim().startsWith('//'))
-    .join('\n');
-  return [
-    `// Script de Sofascore armado por el Analizador${stamp ? ` (${stamp})` : ''}. Pégalo en la consola de sofascore.com y Enter.`,
-    '// Para cortar y descargar lo que ya tiene: window._sofaParar = true',
-    '{',
-    ...config,
-    engine,
-  ].join('\n');
+export function buildSofascoreScript(minified, options) {
+  const code = minified.trim();
+  if (!code.includes(CFG_PLACEHOLDER)) throw new Error('El script minificado no tiene __CFG__: vuelve a generarlo.');
+  return code.replace(CFG_PLACEHOLDER, JSON.stringify(configValues(options)));
+}
+
+/**
+ * El mismo script como marcador ("javascript:..."): en una URL el % se escribe %25.
+ * @param {string} minified
+ * @param {ScriptOptions} options
+ */
+export function buildSofascoreBookmarklet(minified, options) {
+  return `javascript:${buildSofascoreScript(minified, options).replace(/%/g, '%25')}void 0`;
 }

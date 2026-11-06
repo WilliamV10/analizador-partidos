@@ -25,8 +25,9 @@
 // (vuelve a seguir al regresar). El script pide que la pantalla no se apague y avisa si pasa.
 // Para cortar y descargar lo que ya tiene: window._sofaParar = true
 //
-// (Mantenimiento: scripts/sofascore_liga.js se genera desde este archivo. Si cambias algo aqui,
-//  corre  node scripts/generar_script_liga.mjs  para actualizarlo.)
+// (Mantenimiento: scripts/sofascore_liga.js y scripts/sofascore_v5.min.js se generan desde este
+//  archivo. Si cambias algo aqui, corre  node scripts/generar_script_liga.mjs  y
+//  node scripts/generar_script_min.mjs  para actualizarlos.)
 
 { // bloque: permite volver a pegar el script sin el error de 'const' repetida
 // ---------- CONFIGURACION ----------
