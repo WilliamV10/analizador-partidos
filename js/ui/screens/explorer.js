@@ -91,18 +91,25 @@ const DETAIL_STATS = ['shots', 'shotsOnTarget', 'corners', 'yellows', 'possessio
 const outcomeOf = (row) => (row.goalsFor > row.goalsAgainst ? 'win' : row.goalsFor === row.goalsAgainst ? 'draw' : 'loss');
 
 /** Detalle de un partido de un equipo: rival, condición, resultado y lo hecho y concedido. */
-function teamRowDetail(row, stat, series) {
+function teamRowDetail(row, stat, series, matchTotal) {
   const names = TEXTS.recentChart.statNames;
   const tile = (label, mine, theirs, main = false) =>
     mine === null || mine === undefined
       ? null
       : { value: String(mine), label, hint: TEXTS.recentChart.conceded(theirs), tone: main ? 'accent' : '' };
+  const mine = series.for(row);
+  const theirs = series.against(row);
+  // Con la estadística total, el recuadro principal es lo del partido (equipo + rival).
+  const mainTile =
+    matchTotal && mine !== null && mine !== undefined
+      ? { value: String(mine + (theirs ?? 0)), label: TEXTS.recentChart.inMatch(names[stat.source]), hint: TEXTS.recentChart.split(mine, theirs), tone: 'accent' }
+      : tile(names[stat.source], mine, theirs, true);
   return {
     title: TEXTS.recentChart.versus(row.opponent),
     subtitle: [row.date, row.competition, row.isHome ? TEXTS.recentChart.atHome : TEXTS.recentChart.away].filter(Boolean).join(' · '),
     result: { text: TEXTS.recentChart.resultValue(row.goalsFor, row.goalsAgainst, outcomeOf(row)), outcome: outcomeOf(row) },
     tiles: [
-      tile(names[stat.source], series.for(row), series.against(row), true),
+      mainTile,
       stat.source !== 'halfTime' && row.htGoalsFor !== null ? tile(names.halfTime, row.htGoalsFor, row.htGoalsAgainst) : null,
       ...DETAIL_STATS.filter((key) => key !== stat.source && row.stats[key]).map((key) => tile(names[key], row.stats[key].for, row.stats[key].against)),
     ].filter(Boolean),
@@ -110,9 +117,12 @@ function teamRowDetail(row, stat, series) {
 }
 
 /**
- * Gráficas de los dos equipos para la estadística elegida: lo que hicieron en cada partido
- * reciente, con filtro local/visita y detalle al tocar. Se resaltan los partidos que llegan al
- * valor del deslizador si la estadística es de ese equipo (en goles totales, los que anotó).
+ * Gráficas de los dos equipos para la estadística elegida, en cada partido reciente, con filtro
+ * local/visita y detalle al tocar:
+ *  - estadística total (ej. corners totales): lo del partido entero (equipo + rival), y se
+ *    resaltan los partidos que llegan al valor del deslizador;
+ *  - estadística de un equipo: lo que hizo ese equipo; se resalta con el valor del deslizador en
+ *    la gráfica de ese equipo (en la del otro, en goles, los partidos en que anotó).
  * @returns {{ node: Node, refresh: () => void }[]}
  */
 function teamCharts(analysis, stat, currentValue) {
@@ -120,8 +130,14 @@ function teamCharts(analysis, stat, currentValue) {
   if (!series) return [];
   const unit = unitOf(stat);
   const count = analysis.config.explorer.teamGoalsMatches;
+  const matchTotal = stat.side === 'total';
+  const inMatch = (row) => {
+    const mine = series.for(row);
+    return mine === null || mine === undefined ? null : mine + (series.against(row) ?? 0);
+  };
+  const value = matchTotal ? inMatch : series.for;
   const thresholdFor = (side) => () => {
-    if (stat.side === side) return currentValue();
+    if (matchTotal || stat.side === side) return currentValue();
     return stat.source === 'goals' ? 1 : null;
   };
   return ['home', 'away']
@@ -129,27 +145,32 @@ function teamCharts(analysis, stat, currentValue) {
       const team = analysis.match[side];
       const limit = thresholdFor(side);
       return recentChart({
-        title: TEXTS.recentChart.teamTitle(TEXTS.recentChart.statNames[stat.source], team.name),
+        title: (matchTotal ? TEXTS.recentChart.matchTotalTitle : TEXTS.recentChart.teamTitle)(TEXTS.recentChart.statNames[stat.source], team.name),
         rows: recentMatches(team, count),
-        value: series.for,
+        value,
         threshold: limit,
-        detail: (row) => teamRowDetail(row, stat, series),
+        detail: (row) => teamRowDetail(row, stat, series, matchTotal),
         summary: (rows) => {
           const average = (read) => {
             const values = rows.map(read).filter((amount) => amount !== null && amount !== undefined);
             return values.length ? decimal(values.reduce((sum, amount) => sum + amount, 0) / values.length, 1) : EMPTY;
           };
           const threshold = limit();
-          return [
-            { value: average(series.for), label: TEXTS.recentChart.averageFor, tone: 'accent' },
-            { value: average(series.against), label: TEXTS.recentChart.averageAgainst },
+          const reached =
             threshold === null
               ? { value: String(rows.length), label: TEXTS.recentChart.matchesCount }
-              : {
-                  value: `${rows.filter((row) => series.for(row) >= threshold).length}/${rows.length}`,
-                  label: TEXTS.recentChart.reached(threshold, unit),
-                },
-          ];
+              : { value: `${rows.filter((row) => value(row) >= threshold).length}/${rows.length}`, label: TEXTS.recentChart.reached(threshold, unit) };
+          return matchTotal
+            ? [
+                { value: average(inMatch), label: TEXTS.recentChart.averageMatch, tone: 'accent' },
+                { value: average(series.for), label: TEXTS.recentChart.averageFor },
+                reached,
+              ]
+            : [
+                { value: average(series.for), label: TEXTS.recentChart.averageFor, tone: 'accent' },
+                { value: average(series.against), label: TEXTS.recentChart.averageAgainst },
+                reached,
+              ];
         },
       });
     })
