@@ -53,6 +53,10 @@ export const TEXTS = Object.freeze({
     noneForSide: 'Sin partidos con esa condición.',
     barLabel: (opponent, value) => `vs ${opponent}: ${value}`,
     teamTitle: (stat, team) => `${stat} de ${team}`,
+    matchTotalTitle: (stat, team) => `${stat} en los partidos de ${team}`,
+    inMatch: (stat) => `${stat} del partido`,
+    split: (mine, theirs) => `hechos ${mine} · rival ${theirs ?? '—'}`,
+    averageMatch: 'Promedio del partido',
     playerTitle: (stat, player) => `${stat} de ${player}`,
     statNames: {
       goals: 'Goles',
