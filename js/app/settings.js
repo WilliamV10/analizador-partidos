@@ -3,6 +3,7 @@
  * con sus límites, y cómo se combinan con los valores por defecto.
  * Los valores guardados se validan siempre: un localStorage manipulado no rompe el modelo.
  */
+import { STRATEGIES } from '../domain/strategies.js';
 import { clamp } from '../utils/math.js';
 
 /**
@@ -78,7 +79,24 @@ export const SETTING_GROUPS = Object.freeze([
   },
 ]);
 
-const FIELDS = SETTING_GROUPS.flatMap((group) => group.fields);
+/**
+ * Umbrales de las estrategias: se guardan como los demás ajustes, pero se editan en la
+ * pantalla Estrategias (no aparecen en Ajustes). Límites amplios: de 0 a 5 veces el valor
+ * por defecto (o de 0 a 1 en los porcentajes).
+ */
+export const STRATEGY_FIELDS = Object.freeze(
+  STRATEGIES.flatMap((strategy) =>
+    strategy.filters.map((filter) => ({
+      path: `strategies.${strategy.id}.${filter.id}`,
+      kind: 'number',
+      min: 0,
+      max: filter.format === 'percent' ? 1 : Math.max(1, filter.value * 5),
+      step: filter.step,
+    })),
+  ),
+);
+
+const FIELDS = [...SETTING_GROUPS.flatMap((group) => group.fields), ...STRATEGY_FIELDS];
 
 export function readPath(object, path) {
   return path.split('.').reduce((value, key) => value?.[key], object);

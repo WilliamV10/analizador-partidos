@@ -36,6 +36,7 @@ import { DEFAULT_MATCH_TAB, PLAYERS_TAB, renderMatch } from './ui/screens/match.
 import { PLAYER_SIDES } from './ui/screens/matchTabs/players.js';
 import { VALUE_MODES } from './ui/screens/matchTabs/value.js';
 import { renderSettings } from './ui/screens/settings.js';
+import { DEFAULT_STRATEGY, renderStrategies } from './ui/screens/strategies.js';
 import { ALL_LEAGUES, dayTitle, tournamentLine } from './ui/screens/shared.js';
 import { createStore } from './ui/store.js';
 import { bindThemeToggle, readTheme, setTheme } from './ui/theme.js';
@@ -65,6 +66,7 @@ const store = createStore({
   teamSide: 'home',
   dayFilter: DAY_FILTERS.ALL,
   league: ALL_LEAGUES,
+  strategy: DEFAULT_STRATEGY,
   comboRules: { minOdds: initialConfig.combos.minOdds, minTier: initialConfig.combos.minTier, onePerMatch: true },
   comboMode: COMBO_MODES.VALUE,
   probableRules: { minOdds: initialConfig.probable.minOdds, minProbability: initialConfig.probable.minProbability, onePerMatch: true },
@@ -240,6 +242,8 @@ const actions = {
   selectMatchTab: (matchTab) => store.setState({ matchTab }),
   setDayFilter: (dayFilter) => store.setState({ dayFilter }),
   setLeague: (league) => store.setState({ league, dayFilter: DAY_FILTERS.ALL }),
+  setStrategy: (strategy) => store.setState({ strategy }),
+  openStrategies: () => navigate(SCREENS.STRATEGIES),
   setValueMode: (valueMode) => store.setState({ valueMode }),
   setValueGroup: (valueGroup) => store.setState({ valueGroup }),
   setPlayerSide: (playerSide) => store.setState({ playerSide }),
@@ -389,6 +393,7 @@ const SCREEN_VIEWS = {
   [SCREENS.COMBO]: { render: renderCombo },
   [SCREENS.CONTEXT]: { render: renderContext },
   [SCREENS.HISTORY]: { render: renderHistory },
+  [SCREENS.STRATEGIES]: { render: renderStrategies },
   [SCREENS.SETTINGS]: { render: renderSettings, key: (state) => [state.settingsRevision, state.history.records] },
 };
 

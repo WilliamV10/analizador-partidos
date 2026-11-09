@@ -14,6 +14,7 @@ export const SCREENS = Object.freeze({
   COMBO: 'combo',
   CONTEXT: 'context',
   HISTORY: 'history',
+  STRATEGIES: 'strategies',
   SETTINGS: 'settings',
 });
 
@@ -28,6 +29,8 @@ const NAV_ITEMS = [
   { id: SCREENS.EXPLORE, icon: 'chart', needsData: true, desktop: true, mobile: true },
   { id: SCREENS.COMBO, icon: 'combo', needsData: true, desktop: true, mobile: true },
   { id: SCREENS.CONTEXT, icon: 'context', needsData: true, desktop: true, mobile: true },
+  // En el celular se abre desde el Día (la barra inferior ya está llena).
+  { id: SCREENS.STRATEGIES, icon: 'check', needsData: true, desktop: true, mobile: false },
   { id: SCREENS.HISTORY, icon: 'history', needsData: false, desktop: true, mobile: false },
   { id: SCREENS.SETTINGS, icon: 'settings', needsData: false, desktop: true, mobile: true },
 ];

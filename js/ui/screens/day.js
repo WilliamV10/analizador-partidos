@@ -3,6 +3,8 @@
  */
 import { probableCandidates } from '../../domain/combos.js';
 import { confidentForecasts } from '../../domain/history.js';
+import { matchSignals } from '../../domain/signals.js';
+import { STRATEGIES, evaluateStrategy, passes } from '../../domain/strategies.js';
 import { probableConfig, probableMarketSelect } from './combo.js';
 import { rankPicks } from '../../domain/ranking.js';
 import { TIERS } from '../../domain/value.js';
@@ -154,6 +156,15 @@ function bestPicksList(state, actions) {
   ];
 }
 
+/** Acceso a Estrategias (en el celular no está en la barra inferior), con cuántos partidos pasan alguna. */
+function strategiesLink(analyses, config, onOpen) {
+  const count = analyses.filter((analysis) => {
+    const signals = matchSignals(analysis);
+    return STRATEGIES.some((strategy) => passes(evaluateStrategy(strategy, analysis, signals, config.strategies?.[strategy.id])));
+  }).length;
+  return button({ label: TEXTS.strategies.dayLink(count), icon: 'check', variant: 'soft block', onClick: onOpen });
+}
+
 /** Pronósticos con confianza: lo más probable de ganador, ambos anotan y 2.5 con probabilidad alta. */
 function confidentList(analyses, config, onOpenMatch) {
   const { confidentProbability, shown } = config.forecasts;
@@ -202,6 +213,7 @@ export function renderDay(state, actions) {
     failures.length ? h('div', { class: 'notices' }, failures.map((failure) => notice(TEXTS.errors.analysisFailed(failure.title, failure.message), 'error'))) : null,
     leagueSelect(state.analyses, state.league, actions.setLeague),
     indicators(analyses),
+    strategiesLink(analyses, state.config, actions.openStrategies),
     analyses.length > 1 ? chips(filterItems(analyses), dayFilter, actions.setDayFilter, TEXTS.day.filters) : null,
     sectionLabel(TEXTS.day.matchesLabel),
     shown.length

@@ -6,6 +6,8 @@
  */
 import { hasStarted } from './alerts.js';
 import { applyResults } from './settlement.js';
+import { matchSignals } from './signals.js';
+import { strategyTags } from './strategies.js';
 import { towardHalfFor } from './value.js';
 
 /**
@@ -173,11 +175,25 @@ export function predictionRecords(analyses, now) {
   return analyses.filter((analysis) => !hasStarted(analysis.match)).flatMap((analysis) => recordsOf(analysis, now, RECORD_ORIGINS.LIVE));
 }
 
-/** Todas las selecciones de un análisis como registros (con cuota y, sin cuota, las del pronóstico). */
+/**
+ * Todas las selecciones de un análisis como registros. Las del 1X2 guardan además las señales
+ * del partido (una vez por partido, no en cada selección) y cada selección, las estrategias
+ * que el partido pasa con ella (domain/strategies.js).
+ */
 function recordsOf(analysis, now, origin) {
+  const signals = matchSignals(analysis);
+  const tags = strategyTags(analysis, signals, analysis.config.strategies);
+  const withExtras = (record) => {
+    const tagKey = `${record.market.type}|${record.market.line ?? ''}|${record.selection}`;
+    return {
+      ...record,
+      ...(record.market.type === 'result' ? { signals } : {}),
+      ...(tags.has(tagKey) ? { strategies: tags.get(tagKey) } : {}),
+    };
+  };
   return [
-    ...analysis.picks.map((pick) => pickRecord(analysis.match, pick, now, origin)),
-    ...forecastFillers(analysis, now, origin),
+    ...analysis.picks.map((pick) => withExtras(pickRecord(analysis.match, pick, now, origin))),
+    ...forecastFillers(analysis, now, origin).map(withExtras),
   ];
 }
 
