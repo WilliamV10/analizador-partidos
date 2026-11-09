@@ -5,6 +5,7 @@
  * Las tablas por liga están en js/config/leagues.js. Algunos valores se pueden
  * sobrescribir desde el panel de ajustes (ver js/app/settings.js).
  */
+import { strategyDefaults } from './domain/strategies.js';
 import {
   COMPETITION_WEIGHTS,
   DEFAULT_COMPETITION_WEIGHT,
@@ -220,6 +221,8 @@ export const CONFIG = deepFreeze({
     /** Selecciones más probables de cada partido que se prueban al armar combinadas. */
     candidatesPerMatch: 2,
   },
+  /** Umbrales de los filtros de cada estrategia (ver js/domain/strategies.js; se cambian en la pantalla Estrategias). */
+  strategies: strategyDefaults(),
   forecasts: {
     /** Desde esta probabilidad un pronóstico se muestra como "con confianza" en el Día. */
     confidentProbability: 0.65,
