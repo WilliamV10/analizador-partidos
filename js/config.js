@@ -274,6 +274,8 @@ export const CONFIG = deepFreeze({
     playersShown: 25,
   },
   display: {
+    /** Tarjetas de partido a la vista en el Día (el resto con "Ver más"). */
+    dayMatchesShown: 12,
     goalLines: [0.5, 1.5, 2.5, 3.5, 4.5, 5.5],
     topScores: 8,
     /** Marcadores 0..N-1 por lado en el mapa de calor. */

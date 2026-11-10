@@ -9,7 +9,7 @@ import { TIERS } from '../../domain/value.js';
 import { TEXTS } from '../../texts.js';
 import { button, card, emptyState, growingList, iconButton, note, notice, pageHead, sectionLabel, segmented, selectField, stats, tierBadge } from '../components.js';
 import { h } from '../dom.js';
-import { kickoffParts, odds, percent, signedPercent } from '../formatters.js';
+import { kickoff, odds, percent, signedPercent } from '../formatters.js';
 import { dayTitle, inLeague, leagueSelect, pickKey, pickName, tournamentLine } from './shared.js';
 
 /** Niveles que se pueden exigir como mínimo. */
@@ -103,7 +103,7 @@ export function comboText(legs) {
   ].join('\n');
 }
 
-const legMeta = (analysis) => [analysis.match.title, kickoffParts(analysis.match.kickoff)?.time].filter(Boolean).join(' · ');
+const legMeta = (analysis) => [analysis.match.title, analysis.match.kickoff ? kickoff(analysis.match.kickoff) : null].filter(Boolean).join(' · ');
 
 function totalsCard(legs) {
   const combo = priceCombo(legs);

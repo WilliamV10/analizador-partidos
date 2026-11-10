@@ -12,7 +12,7 @@ import { TEXTS } from '../../texts.js';
 import { button, chips, growingList, notice, pageHead, sectionLabel, segmented, signed, stats } from '../components.js';
 import { h } from '../dom.js';
 import { kickoffParts, odds, percent, signedPercent } from '../formatters.js';
-import { bestPick, dayTitle, inLeague, kickoffDate, kickoffTime, leagueSelect, matchCard, pickName, tournamentLine, valuePicks } from './shared.js';
+import { bestPick, dayTitle, inLeague, kickoffDate, spansDays, kickoffTime, leagueSelect, matchCard, pickName, tournamentLine, valuePicks } from './shared.js';
 
 /** Picks que aparecen en "Mejores picks del día". */
 const BEST_PICKS_SHOWN = 5;
@@ -208,19 +208,29 @@ export function renderDay(state, actions) {
   const { failures, dayFilter } = state;
   const analyses = inLeague(state.analyses, state.league);
   const shown = applyFilter(analyses, dayFilter);
+  const showDate = spansDays(analyses);
   return [
     pageHead({ eyebrow: tournamentLine(analyses), title: dayTitle(analyses) }),
     failures.length ? h('div', { class: 'notices' }, failures.map((failure) => notice(TEXTS.errors.analysisFailed(failure.title, failure.message), 'error'))) : null,
     leagueSelect(state.analyses, state.league, actions.setLeague),
     indicators(analyses),
     strategiesLink(analyses, state.config, actions.openStrategies),
-    analyses.length > 1 ? chips(filterItems(analyses), dayFilter, actions.setDayFilter, TEXTS.day.filters) : null,
-    sectionLabel(TEXTS.day.matchesLabel),
-    shown.length
-      ? h('div', { class: 'grid' }, shown.map((analysis) => matchCard(analysis, { onOpen: actions.openMatch })))
-      : h('p', { class: 'note' }, TEXTS.day.noneForFilter),
-    confidentList(analyses, state.config, actions.openMatch),
+    // Primero el resumen (picks y pronósticos); la lista de partidos, que puede ser larga, al final.
     bestPicksList({ ...state, analyses }, actions),
     button({ label: TEXTS.day.buildCombo, icon: 'combo', variant: 'soft lg block', onClick: () => actions.openCombo(state.dayPicksMode) }),
+    confidentList(analyses, state.config, actions.openMatch),
+    sectionLabel(TEXTS.day.matchesLabel),
+    analyses.length > 1 ? chips(filterItems(analyses), dayFilter, actions.setDayFilter, TEXTS.day.filters) : null,
+    shown.length
+      ? growingList({
+          items: shown,
+          render: (analysis) => matchCard(analysis, { onOpen: actions.openMatch, showDate }),
+          first: state.config.display.dayMatchesShown,
+          batch: state.config.display.dayMatchesShown,
+          tag: 'div',
+          className: 'grid',
+          moreLabel: TEXTS.day.moreMatches,
+        })
+      : h('p', { class: 'note' }, TEXTS.day.noneForFilter),
   ];
 }

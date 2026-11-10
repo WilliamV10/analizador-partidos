@@ -521,6 +521,7 @@ export const TEXTS = Object.freeze({
     noneForFilter: 'Ningún partido con ese filtro.',
     noPick: 'Sin picks con valor',
     bestPicks: 'Mejores picks del día',
+    moreMatches: (count, rest) => moreOf(count, rest),
     confidentForecasts: 'Pronósticos con confianza',
     noConfidentForecasts: (min) => `Ningún pronóstico llega a ${min} en estos partidos.`,
     confidentNote: (min) =>
@@ -568,7 +569,10 @@ export const TEXTS = Object.freeze({
     clear: 'Vaciar combinada',
     noCandidates: 'No hay picks que cumplan las reglas.',
     noCandidatesHint: 'Baja la cuota mínima o el nivel mínimo.',
-    withoutCandidates: (titles) => `Sin picks elegibles: ${titles.join(', ')}.`,
+    withoutCandidates: (titles) =>
+      titles.length <= 4
+        ? `Sin picks elegibles: ${titles.join(', ')}.`
+        : `${titles.length} partidos no tienen picks elegibles con estas reglas.`,
     rules: 'Reglas',
     minOdds: 'Cuota mínima por selección',
     minOddsHint: '«Equipo anota» acepta desde 1.15',
@@ -841,6 +845,7 @@ export const TEXTS = Object.freeze({
     clv: 'CLV',
     clvCount: (count) => `${count} con cuota de cierre`,
     byTier: 'Por confianza',
+    byLeague: 'Por liga',
     byMarket: 'Por mercado',
     calibration: 'Calibración del modelo',
     calibrationNote:
