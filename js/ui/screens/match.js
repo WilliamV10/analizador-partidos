@@ -12,7 +12,7 @@ import { renderPlayersTab } from './matchTabs/players.js';
 import { renderSummaryTab } from './matchTabs/summary.js';
 import { renderTeamsTab } from './matchTabs/teams.js';
 import { renderValueTab } from './matchTabs/value.js';
-import { dayTitle, matchCard, valuePicks } from './shared.js';
+import { dayTitle, matchCard, spansDays, valuePicks } from './shared.js';
 
 export const PLAYERS_TAB = 'players';
 
@@ -68,6 +68,7 @@ function header(analysis, actions) {
 }
 
 function sidebar(state, selectedId, actions) {
+  const showDate = spansDays(state.analyses);
   return h(
     'aside',
     { class: 'split__aside', 'aria-label': TEXTS.sections.matches },
@@ -76,7 +77,7 @@ function sidebar(state, selectedId, actions) {
       'div',
       { class: 'stack stack--tight' },
       state.analyses.map((analysis) =>
-        matchCard(analysis, { onOpen: actions.openMatch, selected: analysis.match.id === selectedId, compact: true }),
+        matchCard(analysis, { onOpen: actions.openMatch, selected: analysis.match.id === selectedId, compact: true, showDate }),
       ),
     ),
   );

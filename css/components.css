@@ -2648,3 +2648,19 @@
   text-align: right;
   white-space: nowrap;
 }
+
+/* Tablas de resumen en el celular: más compactas para que entren sin deslizar de lado. */
+@media (max-width: 479px) {
+  .table--summary {
+    font-size: var(--text-sm);
+  }
+
+  .table--summary th,
+  .table--summary td {
+    padding-inline: 5px;
+  }
+
+  .table--summary td:first-child {
+    overflow-wrap: anywhere;
+  }
+}

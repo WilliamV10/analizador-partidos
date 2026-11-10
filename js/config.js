@@ -83,7 +83,7 @@ export const CONFIG = deepFreeze({
      * acierta mejor que la casa; en 1X2, hándicap, corners y tarjetas la casa acierta mejor,
      * así que ahí el modelo pesa poco y casi no salen picks. 1 = solo modelo, 0 = solo casa.
      */
-    modelWeight: { goals: 0.7, btts: 0.7, firstGoal: 0.5, halfTime: 0.5, result: 0.3, handicap: 0.3, corners: 0.2, cards: 0.3 },
+    modelWeight: { goals: 0.7, btts: 0.7, firstGoal: 0.5, halfTime: 0.5, result: 0.3, handicap: 0.3, corners: 0.2, cards: 0.2 },
     /** Peso del modelo en mercados sin peso propio. */
     defaultModelWeight: 0.4,
     /**
@@ -216,6 +216,12 @@ export const CONFIG = deepFreeze({
     minOdds: 1.2,
     /** Probabilidad mínima propia para que una selección entre. */
     minProbability: 0.55,
+    /**
+     * EV mínimo: deja fuera lo que paga bastante menos de lo justo. En el historial, lo más
+     * probable con EV bajo −3 % perdió entre 4 % y 8 %; con EV de 0 o más ganó ~10 %.
+     * −1 = sin filtro.
+     */
+    minEv: -0.03,
     /** Cuota total mínima de una combinada sugerida. */
     minComboOdds: 1.8,
     /** Selecciones más probables de cada partido que se prueban al armar combinadas. */
@@ -268,6 +274,8 @@ export const CONFIG = deepFreeze({
     playersShown: 25,
   },
   display: {
+    /** Tarjetas de partido a la vista en el Día (el resto con "Ver más"). */
+    dayMatchesShown: 12,
     goalLines: [0.5, 1.5, 2.5, 3.5, 4.5, 5.5],
     topScores: 8,
     /** Marcadores 0..N-1 por lado en el mapa de calor. */

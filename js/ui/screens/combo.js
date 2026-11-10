@@ -9,7 +9,7 @@ import { TIERS } from '../../domain/value.js';
 import { TEXTS } from '../../texts.js';
 import { button, card, emptyState, growingList, iconButton, note, notice, pageHead, sectionLabel, segmented, selectField, stats, tierBadge } from '../components.js';
 import { h } from '../dom.js';
-import { kickoffParts, odds, percent, signedPercent } from '../formatters.js';
+import { kickoff, odds, percent, signedPercent } from '../formatters.js';
 import { dayTitle, inLeague, leagueSelect, pickKey, pickName, tournamentLine } from './shared.js';
 
 /** Niveles que se pueden exigir como mínimo. */
@@ -23,6 +23,12 @@ const CANDIDATES_SHOWN = 6;
 const CANDIDATES_BATCH = 20;
 /** Probabilidades mínimas que se pueden exigir en "Más probables". */
 const PROBABILITY_CHOICES = [0.5, 0.6, 0.7, 0.8];
+/** Pago mínimo en "Más probables": EV mínimo de cada opción (−1 = cualquiera). */
+const PAYOUT_CHOICES = [
+  { id: 'any', minEv: -1 },
+  { id: 'fair', minEv: -0.03 },
+  { id: 'value', minEv: 0 },
+];
 
 export const COMBO_MODES = Object.freeze({ VALUE: 'value', PROBABLE: 'probable' });
 
@@ -39,7 +45,7 @@ export const ALL_PROBABLE_MARKETS = 'all';
  */
 export function probableConfig(config, rules, market = ALL_PROBABLE_MARKETS) {
   const markets = market === ALL_PROBABLE_MARKETS ? config.probable.markets : [market];
-  return { ...config.probable, markets, minOdds: rules.minOdds, minProbability: rules.minProbability };
+  return { ...config.probable, markets, minOdds: rules.minOdds, minProbability: rules.minProbability, minEv: rules.minEv ?? config.probable.minEv };
 }
 
 /** Desplegable "Mercado" de "más probables" (lo usan la Combinada y el Día). */
@@ -97,7 +103,7 @@ export function comboText(legs) {
   ].join('\n');
 }
 
-const legMeta = (analysis) => [analysis.match.title, kickoffParts(analysis.match.kickoff)?.time].filter(Boolean).join(' · ');
+const legMeta = (analysis) => [analysis.match.title, analysis.match.kickoff ? kickoff(analysis.match.kickoff) : null].filter(Boolean).join(' · ');
 
 function totalsCard(legs) {
   const combo = priceCombo(legs);
@@ -214,6 +220,24 @@ function rulesCard(mode, rules, setRules) {
       ),
     ),
     levelRow,
+    probable
+      ? h(
+          'div',
+          { class: 'rule-row' },
+          h('div', {}, h('p', { class: 'strong' }, TEXTS.combos.payout), h('p', { class: 'note' }, TEXTS.combos.payoutHint)),
+          h(
+            'div',
+            { class: 'pills', role: 'group', 'aria-label': TEXTS.combos.payout },
+            PAYOUT_CHOICES.map((choice) =>
+              h(
+                'button',
+                { type: 'button', class: 'pill', 'aria-pressed': String((rules.minEv ?? -1) === choice.minEv), onClick: () => setRules({ minEv: choice.minEv }) },
+                TEXTS.combos.payouts[choice.id],
+              ),
+            ),
+          ),
+        )
+      : null,
     h(
       'label',
       { class: 'rule-row' },

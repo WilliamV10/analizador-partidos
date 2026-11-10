@@ -7,7 +7,7 @@ import { TIERS, TIER_ORDER } from '../../domain/value.js';
 import { TEXTS, marketLabel, pickTitle } from '../../texts.js';
 import { badge, resultBar, resultLegend, selectField, signed, tierBadge } from '../components.js';
 import { h } from '../dom.js';
-import { decimal, kickoffParts, odds, signedPercent } from '../formatters.js';
+import { decimal, kickoff, kickoffParts, odds, signedPercent } from '../formatters.js';
 
 /** @typedef {import('../../domain/analyzeMatch.js').MatchAnalysis} MatchAnalysis */
 
@@ -107,10 +107,15 @@ function teamWithPosition(team, side) {
  * @param {MatchAnalysis} analysis
  * @param {{ onOpen: (id: string) => void, selected?: boolean, compact?: boolean }} options
  */
-export function matchCard(analysis, { onOpen, selected = false, compact = false }) {
+/** ¿Los partidos son de más de un día? (entonces las tarjetas muestran también la fecha). */
+export function spansDays(analyses) {
+  return new Set(analyses.map((analysis) => kickoffParts(analysis.match.kickoff)?.date).filter(Boolean)).size > 1;
+}
+
+export function matchCard(analysis, { onOpen, selected = false, compact = false, showDate = false }) {
   const { match, probabilities, lambdas } = analysis;
   const names = namesOf(match);
-  const time = kickoffTime(match) ?? '—';
+  const time = (showDate ? kickoff(match.kickoff) : kickoffTime(match)) ?? '—';
   if (compact) {
     const { home, draw, away } = probabilities.result;
     const pct = (value) => Math.round(value * 100);

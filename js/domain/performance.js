@@ -129,7 +129,12 @@ export function analyzePerformance(records, mode, config, probable) {
       .reverse()
       .filter((tier) => byTier.has(tier))
       .map((tier) => ({ key: tier, ...summarize(byTier.get(tier)) })),
-    byMarket: [...byMarket.entries()].map(([key, entries]) => ({ key, ...summarize(entries) })),
+    byMarket: [...byMarket.entries()].map(([key, entries]) => ({ key, ...summarize(entries) })).sort((first, second) => second.count - first.count),
+    /** Por liga, de la que más picks tiene a la que menos. */
+    byLeague: [...groupBy(settled, (entry) => entry.record.tournament ?? '').entries()]
+      .filter(([key]) => key)
+      .map(([key, entries]) => ({ key, ...summarize(entries) }))
+      .sort((a, b) => b.count - a.count),
     /** Por probabilidad del modelo: `from` y `to` (null en el último rango). */
     byProbability: PROBABILITY_BANDS.map((from, index) => ({ from, to: PROBABILITY_BANDS[index + 1] ?? null }))
       .filter(({ from }) => byBand.has(from))

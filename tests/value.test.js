@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { CONFIG } from '../js/config.js';
 import { blendWithEmpirical, empiricalRate } from '../js/domain/empirical.js';
 import { suggestModelWeights } from '../js/domain/calibration.js';
+import { isProbableCandidate } from '../js/domain/combos.js';
 import { TIERS, confidenceTier, expectedValue, shrinkToMarket, winProbability } from '../js/domain/value.js';
 
 describe('expectedValue / winProbability', () => {
@@ -106,5 +107,15 @@ describe('suggestModelWeights', () => {
   it('con pocos datos no sugiere nada', () => {
     const result = suggestModelWeights(records.slice(0, 20), CONFIG.value).find((row) => row.group === 'result');
     assert.equal(result.suggested, null);
+  });
+});
+
+describe('isProbableCandidate', () => {
+  const pick = { market: { type: 'doubleChance', line: null }, odds: 1.3, probability: 0.7, ev: -0.09 };
+
+  it('deja fuera lo probable que paga mucho menos de lo justo', () => {
+    assert.equal(isProbableCandidate(pick, CONFIG.probable), false);
+    assert.equal(isProbableCandidate({ ...pick, ev: -0.01 }, CONFIG.probable), true);
+    assert.equal(isProbableCandidate(pick, { ...CONFIG.probable, minEv: -1 }), true);
   });
 });

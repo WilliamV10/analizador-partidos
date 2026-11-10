@@ -296,6 +296,7 @@ function performanceView(performance, state, actions) {
         ? breakdown(TEXTS.history.byProbability, performance.byProbability.map((row) => summaryRow(bandLabel(row), row)))
         : breakdown(TEXTS.history.byTier, performance.byTier.map((row) => summaryRow(TEXTS.tiers[row.key], row))),
       breakdown(TEXTS.history.byMarket, performance.byMarket.map((row) => summaryRow(TEXTS.marketGroups[row.key] ?? row.key, row))),
+      performance.byLeague.length > 1 ? breakdown(TEXTS.history.byLeague, performance.byLeague.map((row) => summaryRow(row.key, row))) : null,
     ),
     calibrationCard(performance.calibration),
   ];
