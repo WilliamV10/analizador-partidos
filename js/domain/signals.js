@@ -72,10 +72,18 @@ function teamOf(analysis, side) {
   };
 }
 
+/** Señales ya calculadas de cada análisis (se piden varias veces al dibujar). */
+const cache = new WeakMap();
+
 /**
  * @param {import('./analyzeMatch.js').MatchAnalysis} analysis
  */
 export function matchSignals(analysis) {
+  if (!cache.has(analysis)) cache.set(analysis, computeSignals(analysis));
+  return cache.get(analysis);
+}
+
+function computeSignals(analysis) {
   const { match, probabilities, binary, lambdas, summaries } = analysis;
   const fair = (key) => analysis.quotes.get('result', key)?.fairProbability ?? null;
   const h2h = summaries.h2h;

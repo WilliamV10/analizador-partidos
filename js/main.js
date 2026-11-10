@@ -69,7 +69,12 @@ const store = createStore({
   strategy: DEFAULT_STRATEGY,
   comboRules: { minOdds: initialConfig.combos.minOdds, minTier: initialConfig.combos.minTier, onePerMatch: true },
   comboMode: COMBO_MODES.VALUE,
-  probableRules: { minOdds: initialConfig.probable.minOdds, minProbability: initialConfig.probable.minProbability, onePerMatch: true },
+  probableRules: {
+    minOdds: initialConfig.probable.minOdds,
+    minProbability: initialConfig.probable.minProbability,
+    minEv: initialConfig.probable.minEv,
+    onePerMatch: true,
+  },
   dayPicksMode: DAY_PICK_MODES.VALUE,
   probableMarket: 'all',
   contextScope: CONTEXT_SCOPES.REVIEW,

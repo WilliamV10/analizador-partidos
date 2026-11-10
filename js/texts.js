@@ -603,6 +603,9 @@ export const TEXTS = Object.freeze({
       cards: 'Tarjetas',
     },
     minProbability: 'Probabilidad mínima',
+    payout: 'Pago',
+    payoutHint: 'Lo probable que paga poco pierde a la larga.',
+    payouts: { any: 'Cualquiera', fair: 'Lo justo', value: 'Con valor' },
     minOddsProbableHint: 'Evita cuotas regaladas (ej. 1.04)',
   },
   errors: {

@@ -86,7 +86,8 @@ export function comboCandidates(analyses, config) {
 }
 
 /**
- * ¿La selección entra en "más probables"? Mercado popular, cuota y probabilidad mínimas.
+ * ¿La selección entra en "más probables"? Mercado popular, cuota y probabilidad mínimas, y que
+ * no pague mucho menos de lo justo (EV mínimo).
  * @param {import('./value.js').ValuePick} pick
  * @param {typeof import('../config.js').CONFIG.probable} config
  */
@@ -94,7 +95,8 @@ export function isProbableCandidate(pick, config) {
   const { type, line } = pick.market;
   if (!config.markets.includes(type)) return false;
   if (type === 'total' && !config.totalLines.includes(line)) return false;
-  return pick.odds >= config.minOdds && pick.probability >= config.minProbability;
+  const paysEnough = !Number.isFinite(pick.ev) || pick.ev >= (config.minEv ?? -1);
+  return pick.odds >= config.minOdds && pick.probability >= config.minProbability && paysEnough;
 }
 
 /**

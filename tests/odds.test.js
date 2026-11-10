@@ -61,3 +61,20 @@ describe('fairProbabilities', () => {
     assert.ok(Math.abs(fair.reduce((a, b) => a + b, 0) - 2) < 1e-12);
   });
 });
+
+describe('fairProbabilities (razón de cuotas)', () => {
+  it('suma lo esperado y le quita más margen a la cuota larga', () => {
+    const odds = [1.2, 4.5];
+    const fair = fairProbabilities(odds);
+    assert.ok(Math.abs(fair[0] + fair[1] - 1) < 1e-9);
+    const proportional = (1 / 4.5) / (1 / 1.2 + 1 / 4.5);
+    assert.ok(fair[1] < proportional);
+    assert.ok(fair[1] < 1 / 4.5);
+  });
+
+  it('doble oportunidad suma 2 y sin margen queda igual', () => {
+    const fair = fairProbabilities([1.3, 1.25, 1.9], 2);
+    assert.ok(Math.abs(fair.reduce((a, b) => a + b, 0) - 2) < 1e-9);
+    assert.deepEqual(fairProbabilities([2, 2]), [0.5, 0.5]);
+  });
+});
