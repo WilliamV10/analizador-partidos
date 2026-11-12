@@ -144,8 +144,8 @@ export const TEXTS = Object.freeze({
     averageFor: 'Promedio hecho',
     averageAgainst: 'Promedio concedido',
     matchesCount: 'Partidos',
-    reached: (threshold, [singular, pluralForm]) => `Con ${threshold} ${plural(threshold, singular, pluralForm)} o más`,
-    reachedPlain: (threshold) => `Con ${threshold} o más`,
+    reached: (threshold, [, pluralForm]) => `Más de ${threshold - 0.5} ${pluralForm}`,
+    reachedPlain: (threshold) => `Más de ${threshold - 0.5}`,
     perMatch: 'Por partido',
     per90: "Cada 90'",
     minutes: 'Minutos',
@@ -366,7 +366,7 @@ export const TEXTS = Object.freeze({
   explorer: {
     title: 'Explorar',
     intro:
-      'Elige qué mirar y mueve el deslizador: probabilidad de exactamente N, N o más y N o menos. ' +
+      'Elige qué mirar y mueve el deslizador para elegir la línea (0.5, 1.5, 2.5…): probabilidad de más y de menos de esa línea, como en la casa. ' +
       'En «Ambos anotan» ves la probabilidad de que los dos equipos anoten y en «Jugadores» quiénes tienen más opciones de rematar.',
     thisMatch: 'Este partido',
     allMatches: (count) => `Todos · ${count}`,
@@ -386,8 +386,8 @@ export const TEXTS = Object.freeze({
     awayShort: 'V',
     playerTitle: (name, team) => `${name} · ${team}`,
     playerDetail: (match, status, expected) => `${match} · ${status} · esperado ${expected}`,
-    playersHint: (value, [singular, pluralForm]) =>
-      `Jugadores ordenados por la probabilidad de ${value} ${plural(value, singular, pluralForm)} o más. ` +
+    playersHint: (line, [, pluralForm]) =>
+      `Jugadores ordenados por la probabilidad de más de ${line} ${pluralForm}. ` +
       'Toca uno para ver sus remates en los últimos partidos. «Sin XI»: aún sin alineación, se usan sus minutos de promedio.',
     morePlayers: (count, rest) => moreOf(count, rest),
     openPlayersTab: 'Ver la pestaña Jugadores del partido',
@@ -415,23 +415,22 @@ export const TEXTS = Object.freeze({
     bttsFirstHalf: 'Ambos anotan en el 1er tiempo',
     bttsRankingHint: 'Partidos ordenados por la probabilidad de que ambos anoten. Toca uno para ver el detalle.',
     bttsRowDetail: (home, away, house) => `Local anota ${home} · visita anota ${away}${house ? ` · casa ${house}` : ''}`,
-    valueLabel: (value, [singular, pluralForm]) => `${value} ${plural(value, singular, pluralForm)}`,
-    sliderLabel: ([, pluralForm]) => `Cantidad de ${pluralForm}`,
+    valueLabel: (line, [, pluralForm]) => `Línea ${line} ${pluralForm}`,
+    sliderLabel: ([, pluralForm]) => `Línea de ${pluralForm}`,
     less: 'Uno menos',
     more: 'Uno más',
-    exactly: (value, [singular, pluralForm]) => `Exactamente ${value} ${plural(value, singular, pluralForm)}`,
-    atLeast: (value, [singular, pluralForm]) => `${value} ${plural(value, singular, pluralForm)} o más`,
-    atMost: (value, [singular, pluralForm]) => `${value} ${plural(value, singular, pluralForm)} o menos`,
+    over: (line, [, pluralForm]) => `Más de ${line} ${pluralForm}`,
+    under: (line, [, pluralForm]) => `Menos de ${line} ${pluralForm}`,
     fair: (odds) => `cuota justa ${odds}`,
     distribution: 'Distribución',
-    chartLabel: 'Probabilidad de cada cantidad; resaltadas las que cumplen "o más"',
+    chartLabel: 'Probabilidad de cada cantidad; resaltadas las que superan la línea',
+    distributionLine: (line) => `Distribución · línea ${line}`,
     expected: 'Esperado',
     houseOver: (line) => `Casa · más de ${line}`,
     houseUnder: (line) => `Casa · menos de ${line}`,
     houseLine: (fair, odds, mine) => `${fair} @ ${odds} (mío ${mine})`,
-    rankingHint: (value, [singular, pluralForm]) =>
-      `Partidos ordenados por la probabilidad de ${value} ${plural(value, singular, pluralForm)} o más. Toca uno para verlo en detalle.`,
-    rowDetail: (mean, exactly, value) => `Esperado ${mean} · exactamente ${value}: ${exactly}`,
+    rankingHint: (line, [, pluralForm]) => `Partidos ordenados por la probabilidad de más de ${line} ${pluralForm}. Toca uno para verlo en detalle.`,
+    rowDetail: (mean, under, line) => `Esperado ${mean} · menos de ${line}: ${under}`,
     method:
       'Goles: la grilla final del modelo. Corners y tarjetas: binomial negativa con el esperado final (ya mezclado con la cuota). ' +
       'Remates: binomial negativa con lo que remata cada equipo y lo que concede el rival (no hay cuota de la casa). ' +

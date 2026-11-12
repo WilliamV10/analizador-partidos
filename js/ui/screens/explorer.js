@@ -40,7 +40,14 @@ const fairOdds = (probability) => (probability > 0 ? odds(1 / probability) : EMP
 const unitOf = (stat) => TEXTS.explorer.units[isPlayerStat(stat) ? stat.field : stat.group];
 
 /** Valor mínimo del deslizador: en jugadores, "0 o más" siempre es 100 %. */
-const minValueOf = (stat) => (isPlayerStat(stat) ? 1 : 0);
+/**
+ * El deslizador elige N y se muestra como la línea N − 0.5 (más de 2.5 = 3 o más). El mínimo es
+ * 1 (línea 0.5): "más de −0.5" sería siempre 100 %.
+ */
+const minValueOf = () => 1;
+
+/** Línea de apuesta que corresponde a N: 3 -> "2.5". */
+export const lineOf = (value) => (value - 0.5).toFixed(1);
 
 function sideLabel(stat, names) {
   if (isPlayerStat(stat)) return TEXTS.explorer.playerStats[stat.field];
@@ -50,13 +57,13 @@ function sideLabel(stat, names) {
   return TEXTS.explorer.total;
 }
 
-/** Valor inicial: el más cercano a lo esperado. */
+/** Valor inicial: la línea más cercana a lo esperado (ej. 2.6 goles esperados -> línea 2.5). */
 function defaultValue(distributions) {
   const means = distributions.filter(Boolean).map(distributionMean);
-  return means.length ? Math.round(means.reduce((sum, mean) => sum + mean, 0) / means.length) : 0;
+  return means.length ? Math.max(1, Math.round(means.reduce((sum, mean) => sum + mean, 0) / means.length)) : 1;
 }
 
-/** Barras de la distribución; las de N o más se resaltan. */
+/** Barras de la distribución; las que superan la línea (N o más) se resaltan. */
 function distributionChart(distribution, value, max) {
   const shown = distribution.slice(0, max + 1);
   const top = Math.max(...shown, 0.0001);
@@ -66,7 +73,7 @@ function distributionChart(distribution, value, max) {
     shown.map((probability, index) =>
       h(
         'div',
-        { class: `dist__column${index >= value ? ' is-over' : ''}${index === value ? ' is-current' : ''}`, title: `${index}: ${percent(probability, 1)}` },
+        { class: `dist__column${index >= value ? ' is-over' : ''}${index === value ? ' is-line' : ''}`, title: `${index}: ${percent(probability, 1)}` },
         h('span', { class: 'dist__bar', style: `height:${((probability / top) * 100).toFixed(1)}%` }),
         h('span', { class: 'dist__label' }, index === max ? `${index}+` : index),
       ),
@@ -74,14 +81,15 @@ function distributionChart(distribution, value, max) {
   );
 }
 
-/** Cuotas de la casa para "más de N−0.5" y "menos de N+0.5", si existen. */
+/** Cuotas de la casa para más y menos de la línea elegida, si existen. */
 function quoteRows(analysis, stat, value, probabilities) {
   if (!stat.market) return [];
-  const over = value > 0 ? analysis.quotes.get(stat.market, 'over', value - 0.5) : null;
-  const under = analysis.quotes.get(stat.market, 'under', value + 0.5);
+  const line = value - 0.5;
+  const over = analysis.quotes.get(stat.market, 'over', line);
+  const under = analysis.quotes.get(stat.market, 'under', line);
   return [
-    over ? [TEXTS.explorer.houseOver(value - 0.5), TEXTS.explorer.houseLine(percent(over.fairProbability), odds(over.odds), percent(probabilities.atLeast))] : null,
-    under ? [TEXTS.explorer.houseUnder(value + 0.5), TEXTS.explorer.houseLine(percent(under.fairProbability), odds(under.odds), percent(probabilities.atMost))] : null,
+    over ? [TEXTS.explorer.houseOver(lineOf(value)), TEXTS.explorer.houseLine(percent(over.fairProbability), odds(over.odds), percent(probabilities.atLeast))] : null,
+    under ? [TEXTS.explorer.houseUnder(lineOf(value)), TEXTS.explorer.houseLine(percent(under.fairProbability), odds(under.odds), percent(1 - probabilities.atLeast))] : null,
   ].filter(Boolean);
 }
 
@@ -186,14 +194,13 @@ function matchResults(analysis, stat, value, max) {
   return [
     stats(
       [
-        { value: percent(probabilities.exactly), label: TEXTS.explorer.exactly(value, unit), hint: TEXTS.explorer.fair(fairOdds(probabilities.exactly)) },
-        { value: percent(probabilities.atLeast), label: TEXTS.explorer.atLeast(value, unit), hint: TEXTS.explorer.fair(fairOdds(probabilities.atLeast)), tone: 'accent' },
-        { value: percent(probabilities.atMost), label: TEXTS.explorer.atMost(value, unit), hint: TEXTS.explorer.fair(fairOdds(probabilities.atMost)) },
+        { value: percent(probabilities.atLeast), label: TEXTS.explorer.over(lineOf(value), unit), hint: TEXTS.explorer.fair(fairOdds(probabilities.atLeast)), tone: 'accent' },
+        { value: percent(1 - probabilities.atLeast), label: TEXTS.explorer.under(lineOf(value), unit), hint: TEXTS.explorer.fair(fairOdds(1 - probabilities.atLeast)) },
       ],
-      3,
+      2,
     ),
     card(
-      { label: TEXTS.explorer.distribution },
+      { label: TEXTS.explorer.distributionLine(lineOf(value)) },
       distributionChart(distribution, value, max),
       kvList([[TEXTS.explorer.expected, decimal(distributionMean(distribution), 2)], ...quotes]),
     ),
@@ -211,7 +218,7 @@ function allMatchesResults(analyses, stat, value, onOpen) {
     .sort((a, b) => b.atLeast - a.atLeast);
   if (!rows.length) return emptyState({ title: TEXTS.extra.noData });
   return [
-    note(TEXTS.explorer.rankingHint(value, unit)),
+    note(TEXTS.explorer.rankingHint(lineOf(value), unit)),
     h(
       'ol',
       { class: 'rank-list' },
@@ -230,7 +237,7 @@ function allMatchesResults(analyses, stat, value, onOpen) {
               h(
                 'span',
                 { class: 'rank-item__sub' },
-                TEXTS.explorer.rowDetail(decimal(distributionMean(row.distribution), 1), percent(row.exactly), value),
+                TEXTS.explorer.rowDetail(decimal(distributionMean(row.distribution), 1), percent(1 - row.atLeast), lineOf(value)),
               ),
             ),
             h(
@@ -359,7 +366,7 @@ function playerResults(analyses, stat, value, config, onOpen) {
   const rows = playerRanking(analyses, stat.id, value);
   if (!rows.length) return emptyState({ title: TEXTS.players.empty });
   return [
-    note(TEXTS.explorer.playersHint(value, unitOf(stat))),
+    note(TEXTS.explorer.playersHint(lineOf(value), unitOf(stat))),
     growingList({
       items: rows,
       render: (row, index) => playerRow(row, index, onOpen, stat, value),
@@ -375,7 +382,7 @@ function playerResults(analyses, stat, value, config, onOpen) {
 function sliderCard({ value, min, max, unit, onPreview, onCommit }) {
   let current = value;
   const fill = () => input.style.setProperty('--fill', `${(((current - min) / (max - min)) * 100).toFixed(1)}%`);
-  const label = h('span', { class: 'explorer__value' }, TEXTS.explorer.valueLabel(current, unit));
+  const label = h('span', { class: 'explorer__value' }, TEXTS.explorer.valueLabel(lineOf(current), unit));
   const input = h('input', {
     class: 'slider',
     type: 'range',
@@ -389,7 +396,7 @@ function sliderCard({ value, min, max, unit, onPreview, onCommit }) {
     current = Math.max(min, Math.min(max, next));
     input.value = String(current);
     fill();
-    label.textContent = TEXTS.explorer.valueLabel(current, unit);
+    label.textContent = TEXTS.explorer.valueLabel(lineOf(current), unit);
     onPreview(current);
     if (commit) onCommit(current);
   };
