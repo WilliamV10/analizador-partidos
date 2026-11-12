@@ -2101,8 +2101,19 @@
   background: var(--accent-ink);
 }
 
-.dist__column.is-current .dist__bar {
-  box-shadow: 0 0 0 2px var(--text);
+/* La línea elegida (ej. 2.5) es el borde punteado entre la última barra por debajo y la primera por encima. */
+.dist__column.is-line {
+  position: relative;
+}
+
+.dist__column.is-line::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 18px;
+  left: -2px;
+  border-left: 2px dashed var(--text);
+  opacity: 0.6;
 }
 
 .dist__label {
@@ -2111,7 +2122,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.dist__column.is-current .dist__label {
+.dist__column.is-over .dist__label {
   color: var(--text);
   font-weight: 700;
 }
