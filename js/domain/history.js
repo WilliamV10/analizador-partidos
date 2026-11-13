@@ -4,6 +4,7 @@
  *  - llevar las apuestas del usuario (registros con `bet`).
  * Funciones puras: reciben registros y devuelven registros nuevos.
  */
+import { CONFIG } from '../config.js';
 import { hasStarted } from './alerts.js';
 import { applyResults } from './settlement.js';
 import { matchSignals } from './signals.js';
@@ -138,16 +139,36 @@ function forecastFillers(analysis, now, origin) {
  * @param {import('./analyzeMatch.js').MatchAnalysis} analysis
  * @returns {{ id: string, market: Object, selection: string, probability: number, odds: number|null }[]}
  */
-export function matchForecasts(analysis) {
+export function matchForecasts(analysis, rules = analysis.config?.forecasts ?? CONFIG.forecasts) {
   return FORECAST_MARKETS.map(({ id, market, probabilities }) => {
     const options = Object.entries(probabilities(analysis)).map(([selection, probability]) => {
       const pick = analysis.picks.find(
         (candidate) => candidate.market.type === market.type && (candidate.market.line ?? null) === (market.line ?? null) && candidate.key === selection,
       );
-      return { id, market: pick?.market ?? market, selection, probability: pick?.probability ?? probability, odds: pick?.odds ?? null };
+      return {
+        id,
+        market: pick?.market ?? market,
+        selection,
+        probability: pick?.probability ?? probability,
+        fairProbability: pick?.fairProbability ?? null,
+        odds: pick?.odds ?? null,
+      };
     });
     return options.reduce((best, option) => (option.probability > best.probability ? option : best));
-  });
+  }).filter((forecast) => isForecastWorthy(forecast, rules));
+}
+
+/**
+ * ¿Vale la pena generar este pronóstico? La casa le da al menos `minHouseProbability` (sin cuota
+ * de la casa, la probabilidad propia) y su cuota es al menos `minOdds`. Lo que queda fuera es
+ * casi una moneda al aire o casi seguro: en ambos casos solo mete ruido en el acierto.
+ * @param {{ probability: number, fairProbability?: number|null, odds?: number|null }} forecast
+ * @param {{ minHouseProbability: number, minOdds: number }} rules
+ */
+export function isForecastWorthy(forecast, rules = CONFIG.forecasts) {
+  const house = Number.isFinite(forecast.fairProbability) ? forecast.fairProbability : forecast.probability;
+  if (house < rules.minHouseProbability) return false;
+  return !Number.isFinite(forecast.odds) || forecast.odds >= rules.minOdds;
 }
 
 /**
