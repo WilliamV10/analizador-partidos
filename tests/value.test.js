@@ -4,6 +4,7 @@ import { CONFIG } from '../js/config.js';
 import { blendWithEmpirical, empiricalRate } from '../js/domain/empirical.js';
 import { suggestModelWeights } from '../js/domain/calibration.js';
 import { isProbableCandidate } from '../js/domain/combos.js';
+import { isForecastWorthy } from '../js/domain/history.js';
 import { TIERS, confidenceTier, expectedValue, shrinkToMarket, winProbability } from '../js/domain/value.js';
 
 describe('expectedValue / winProbability', () => {
@@ -117,5 +118,14 @@ describe('isProbableCandidate', () => {
     assert.equal(isProbableCandidate(pick, CONFIG.probable), false);
     assert.equal(isProbableCandidate({ ...pick, ev: -0.01 }, CONFIG.probable), true);
     assert.equal(isProbableCandidate(pick, { ...CONFIG.probable, minEv: -1 }), true);
+  });
+});
+
+describe('isForecastWorthy', () => {
+  it('descarta los pronósticos que la casa ve por debajo de 40 % o con cuota menor a 1.10', () => {
+    assert.equal(isForecastWorthy({ probability: 0.45, fairProbability: 0.38, odds: 2.4 }), false);
+    assert.equal(isForecastWorthy({ probability: 0.92, fairProbability: 0.9, odds: 1.05 }), false);
+    assert.equal(isForecastWorthy({ probability: 0.6, fairProbability: 0.55, odds: 1.7 }), true);
+    assert.equal(isForecastWorthy({ probability: 0.42, fairProbability: null, odds: null }), true);
   });
 });

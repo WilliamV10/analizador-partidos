@@ -6,7 +6,7 @@
  * Se calcula a partir de los registros del historial (cada selección guarda su
  * probabilidad), así que también funciona con registros guardados antes de esta función.
  */
-import { FORECAST_MARKETS } from './history.js';
+import { FORECAST_MARKETS, isForecastWorthy } from './history.js';
 import { SETTLEMENT } from './settlement.js';
 
 /** Registro del historial -> id del mercado de pronóstico (result, btts, goals25) o null. */
@@ -27,6 +27,8 @@ function forecastIdOf(record) {
 
 /**
  * Un pronóstico por partido y mercado: la selección con más probabilidad.
+ * Quedan fuera los que no valen la pena (isForecastWorthy: la casa les da menos de 40 % o la
+ * cuota es menor a 1.10).
  * @param {import('./history.js').HistoryRecord[]} records
  * @returns {ForecastEntry[]}
  */
@@ -39,7 +41,7 @@ export function forecastEntries(records) {
     const current = best.get(key);
     if (!current || record.probability > current.record.probability) best.set(key, { id, record });
   });
-  return [...best.values()].map(({ id, record }) => ({
+  return [...best.values()].filter(({ record }) => isForecastWorthy(record)).map(({ id, record }) => ({
     id,
     record,
     hit: record.settlement ? record.settlement.status === SETTLEMENT.WIN : null,

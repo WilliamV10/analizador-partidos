@@ -234,6 +234,13 @@ export const CONFIG = deepFreeze({
     confidentProbability: 0.65,
     /** Pronósticos con confianza a la vista en el Día (el resto con "Ver más"). */
     shown: 6,
+    /**
+     * Un pronóstico solo se genera si la casa le da al menos esto (sin cuota de la casa, se usa
+     * la probabilidad propia): por debajo es casi una moneda al aire y solo mete ruido.
+     */
+    minHouseProbability: 0.4,
+    /** ... y si su cuota es al menos esta (más baja no dice nada: es casi seguro). */
+    minOdds: 1.1,
   },
   history: {
     /** Partidos pendientes que entran en un script de resultados (Sofascore limita peticiones). */
