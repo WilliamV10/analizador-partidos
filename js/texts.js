@@ -256,6 +256,10 @@ export const TEXTS = Object.freeze({
     withoutValue: (count) => `Sin valor · ${count} ${plural(count, 'selección', 'selecciones')}`,
     modeLabel: 'Qué cuotas mostrar',
     groupLabel: 'Filtrar por mercado',
+    sortLabel: 'Ordenar por',
+    sorts: { value: 'Más valor (EV)', probability: 'Más probable', odds: 'Mayor cuota' },
+    hidden: (count) =>
+      `${count} ${plural(count, 'selección oculta', 'selecciones ocultas')}: la casa les da menos de 40 % o su cuota es menor a 1.10.`,
   },
   marketGroupsShort: {
     result: '1X2',

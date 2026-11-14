@@ -1,16 +1,28 @@
 /**
  * Pestaña Valor: cada cuota contra la probabilidad propia, como tarjetas
- * (Mi prob. vs Casa), filtrables por grupo de mercado. El "+" registra la apuesta.
+ * (Mi prob. vs Casa), filtrables por grupo de mercado y ordenables (más valor, más probable,
+ * mayor cuota). El "+" registra la apuesta. En "Todos los mercados" no salen las selecciones
+ * que la casa ve por debajo de 40 % ni las de cuota menor a 1.10 (la misma regla de los
+ * pronósticos): solo meten ruido.
  */
+import { isForecastWorthy } from '../../../domain/history.js';
 import { marketGroup } from '../../../domain/marketCatalog.js';
 import { TIERS } from '../../../domain/value.js';
 import { TEXTS } from '../../../texts.js';
-import { chips, compareBars, emptyState, iconButton, note, segmented, tierBadge } from '../../components.js';
+import { chips, compareBars, emptyState, iconButton, note, segmented, selectField, tierBadge } from '../../components.js';
 import { h } from '../../dom.js';
 import { odds, signedPercent } from '../../formatters.js';
 import { pickMarket, pickName } from '../shared.js';
 
 export const VALUE_MODES = Object.freeze({ VALUE: 'value', ALL: 'all' });
+
+/** Cómo ordenar las tarjetas: por EV, por probabilidad propia o por cuota (de mayor a menor). */
+export const VALUE_SORTS = Object.freeze({ VALUE: 'value', PROBABILITY: 'probability', ODDS: 'odds' });
+const SORTERS = {
+  [VALUE_SORTS.VALUE]: (a, b) => b.ev - a.ev,
+  [VALUE_SORTS.PROBABILITY]: (a, b) => b.probability - a.probability || b.ev - a.ev,
+  [VALUE_SORTS.ODDS]: (a, b) => b.odds - a.odds || b.ev - a.ev,
+};
 const ALL_GROUPS = 'all';
 
 /**
@@ -70,11 +82,15 @@ function groupItems(picks) {
  */
 export function renderValueTab(analysis, state, actions) {
   const withValue = analysis.picks.filter((pick) => pick.tier !== TIERS.NONE);
-  const withoutValue = analysis.picks.length - withValue.length;
-  const base = state.valueMode === VALUE_MODES.ALL ? analysis.picks : withValue;
+  const worthy = analysis.picks.filter((pick) => pick.tier !== TIERS.NONE || isForecastWorthy(pick, analysis.config.forecasts));
+  const hidden = analysis.picks.length - worthy.length;
+  const withoutValue = worthy.length - withValue.length;
+  const all = state.valueMode === VALUE_MODES.ALL;
+  const base = all ? worthy : withValue;
   const items = groupItems(base);
   const group = items.some((item) => item.id === state.valueGroup) ? state.valueGroup : ALL_GROUPS;
-  const shown = group === ALL_GROUPS ? base : base.filter((pick) => marketGroup(pick.market) === group);
+  const sort = SORTERS[state.valueSort] ? state.valueSort : VALUE_SORTS.VALUE;
+  const shown = (group === ALL_GROUPS ? base : base.filter((pick) => marketGroup(pick.market) === group)).slice().sort(SORTERS[sort]);
   return [
     segmented(
       [
@@ -86,6 +102,14 @@ export function renderValueTab(analysis, state, actions) {
       TEXTS.value.modeLabel,
     ),
     items.length > 2 ? chips(items, group, actions.setValueGroup, TEXTS.value.groupLabel) : null,
+    base.length > 1
+      ? selectField({
+          label: TEXTS.value.sortLabel,
+          value: sort,
+          options: Object.values(VALUE_SORTS).map((id) => ({ id, label: TEXTS.value.sorts[id] })),
+          onChange: actions.setValueSort,
+        })
+      : null,
     shown.length
       ? h('div', { class: 'grid' }, shown.map((pick) => pickCard(analysis.match, pick, actions.betting)))
       : emptyState({ title: TEXTS.sections.noValue, text: TEXTS.sections.noValueHint }),
@@ -96,6 +120,7 @@ export function renderValueTab(analysis, state, actions) {
           h('span', { class: 'card--button__text card__title' }, TEXTS.value.withoutValue(withoutValue)),
         )
       : null,
+    all && hidden ? note(TEXTS.value.hidden(hidden)) : null,
     note(TEXTS.sections.valueNote),
   ];
 }

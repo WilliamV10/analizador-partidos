@@ -34,7 +34,7 @@ import { EXPLORER_SCOPES, renderExplorer } from './ui/screens/explorer.js';
 import { renderHistory } from './ui/screens/history.js';
 import { DEFAULT_MATCH_TAB, PLAYERS_TAB, renderMatch } from './ui/screens/match.js';
 import { PLAYER_SIDES } from './ui/screens/matchTabs/players.js';
-import { VALUE_MODES } from './ui/screens/matchTabs/value.js';
+import { VALUE_MODES, VALUE_SORTS } from './ui/screens/matchTabs/value.js';
 import { renderSettings } from './ui/screens/settings.js';
 import { DEFAULT_STRATEGY, renderStrategies } from './ui/screens/strategies.js';
 import { ALL_LEAGUES, dayTitle, tournamentLine } from './ui/screens/shared.js';
@@ -62,6 +62,7 @@ const store = createStore({
   matchTab: DEFAULT_MATCH_TAB,
   valueMode: VALUE_MODES.VALUE,
   valueGroup: 'all',
+  valueSort: VALUE_SORTS.VALUE,
   playerSide: PLAYER_SIDES.BOTH,
   teamSide: 'home',
   dayFilter: DAY_FILTERS.ALL,
@@ -251,6 +252,7 @@ const actions = {
   openStrategies: () => navigate(SCREENS.STRATEGIES),
   setValueMode: (valueMode) => store.setState({ valueMode }),
   setValueGroup: (valueGroup) => store.setState({ valueGroup }),
+  setValueSort: (valueSort) => store.setState({ valueSort }),
   setPlayerSide: (playerSide) => store.setState({ playerSide }),
   setTeamSide: (teamSide) => store.setState({ teamSide }),
   setComboKeys: (comboKeys) => store.setState({ comboKeys }),
