@@ -37,6 +37,8 @@ import { PLAYER_SIDES } from './ui/screens/matchTabs/players.js';
 import { VALUE_MODES, VALUE_SORTS } from './ui/screens/matchTabs/value.js';
 import { renderSettings } from './ui/screens/settings.js';
 import { DEFAULT_STRATEGY, renderStrategies } from './ui/screens/strategies.js';
+import { parseSurebets } from './domain/surebets.js';
+import { renderSurebets } from './ui/screens/surebets.js';
 import { ALL_LEAGUES, dayTitle, tournamentLine } from './ui/screens/shared.js';
 import { createStore } from './ui/store.js';
 import { bindThemeToggle, readTheme, setTheme } from './ui/theme.js';
@@ -68,6 +70,8 @@ const store = createStore({
   dayFilter: DAY_FILTERS.ALL,
   league: ALL_LEAGUES,
   strategy: DEFAULT_STRATEGY,
+  surebets: null,
+  surebetsError: null,
   comboRules: { minOdds: initialConfig.combos.minOdds, minTier: initialConfig.combos.minTier, onePerMatch: true },
   comboMode: COMBO_MODES.VALUE,
   probableRules: {
@@ -249,6 +253,14 @@ const actions = {
   setDayFilter: (dayFilter) => store.setState({ dayFilter }),
   setLeague: (league) => store.setState({ league, dayFilter: DAY_FILTERS.ALL }),
   setStrategy: (strategy) => store.setState({ strategy }),
+  openSurebets: () => navigate(SCREENS.SUREBETS),
+  loadSurebets(text) {
+    try {
+      store.setState({ surebets: parseSurebets(text), surebetsError: null });
+    } catch (error) {
+      store.setState({ surebetsError: error.message });
+    }
+  },
   openStrategies: () => navigate(SCREENS.STRATEGIES),
   setValueMode: (valueMode) => store.setState({ valueMode }),
   setValueGroup: (valueGroup) => store.setState({ valueGroup }),
@@ -401,6 +413,8 @@ const SCREEN_VIEWS = {
   [SCREENS.CONTEXT]: { render: renderContext },
   [SCREENS.HISTORY]: { render: renderHistory },
   [SCREENS.STRATEGIES]: { render: renderStrategies },
+  // Solo se redibuja al cargar otro JSON: el monto y las opciones actualizan la lista en el lugar.
+  [SCREENS.SUREBETS]: { render: renderSurebets, key: (state) => [state.surebets, state.surebetsError] },
   [SCREENS.SETTINGS]: { render: renderSettings, key: (state) => [state.settingsRevision, state.history.records] },
 };
 

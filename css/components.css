@@ -2675,3 +2675,27 @@
     overflow-wrap: anywhere;
   }
 }
+
+/* ---------- Calculadora de apuesta segura ---------- */
+
+.surebets {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.surebet {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.surebet + .surebet {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.surebet__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
