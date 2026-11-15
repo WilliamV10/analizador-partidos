@@ -10,6 +10,47 @@ const moreOf = (count, rest) => (count < rest ? `Ver ${count} más (quedan ${res
 const TIER_NAMES = { high: 'Alta', medium: 'Media', low: 'Media-baja', none: 'Sin valor' };
 
 export const TEXTS = Object.freeze({
+  surebets: {
+    eyebrow: 'Herramienta',
+    title: 'Calculadora de apuesta segura',
+    loadTitle: '1. Carga el resultado del script',
+    open: 'Abrir JSON',
+    paste: 'O pegar el texto',
+    pastePlaceholder: 'Pega aquí el JSON (o copy(window.SUREBETS) desde la consola)',
+    load: 'Cargar',
+    loadHint: 'El JSON se descarga solo al correr el script de apuestas seguras (surebets_….json).',
+    error: (reason) => `No pude leer el archivo: ${reason}.`,
+    summary: (safe, almost, sandwich, compared) =>
+      `${safe} ${plural(safe, 'segura', 'seguras')} · ${almost} casi · ${sandwich} ${plural(sandwich, 'sándwich', 'sándwiches')}` +
+      `${compared ? ` · ${compared} partidos comparados` : ''}`,
+    age: (minutes, stale) => ` · generado hace ${minutes} min${stale ? ': las cuotas pudieron cambiar, vuelve a correr el script' : ''}`,
+    howMuch: '2. ¿Cuánto quieres?',
+    mode: 'Modo',
+    modes: { win: 'Quiero ganar $', total: 'Quiero invertir en total $' },
+    amountWin: 'Ganancia deseada $',
+    amountTotal: 'Total a invertir $',
+    round: 'Redondear apuestas a',
+    rounds: { 1: '$1', '0.5': '$0.50', '0.01': 'Centavos', 5: '$5' },
+    show: 'Mostrar',
+    shows: { safe: 'Solo seguras', almost: 'Seguras + casi', sandwich: 'Sándwiches' },
+    empty: 'Todavía no hay datos cargados.',
+    none: 'No hay apuestas de este tipo en el archivo. Vuelve a correr el script más tarde.',
+    needAmount: 'Escribe un monto mayor a 0.',
+    columns: { bet: 'Apuesta', odds: 'Cuota', stake: 'Poner', payout: 'Si gana cobra' },
+    sandwich: 'Sándwich',
+    sandwichHint: (middle, both, worst) => `Si ${middle}: ganas las dos (${both}). Si no: ${worst}.`,
+    sandwichTotal: (total) => `Total invertido ${total} (en los sándwiches el monto es el total a invertir).`,
+    almostHint: 'No es segura: pierdes un poco pase lo que pase. Solo de referencia.',
+    toWin: (amount, total) => `Para ganar ${amount} necesitas invertir ${total} en total.`,
+    total: (total) => `Total invertido ${total} · ganancia segura `,
+    byRounding: ' (la mínima, por el redondeo)',
+    namesInBooks: (names) => `Cómo aparece en cada casa: ${names}`,
+    warning:
+      'Antes de apostar: confirma que las cuotas sigan iguales en las casas, apuesta primero en la de la cuota más alta (la que más cambia) ' +
+      'y revisa las reglas de cada casa: pueden anular por "error palpable" o limitar la cuenta.',
+    settingsLink: 'Calculadora de apuesta segura',
+    settingsTitle: 'Herramientas',
+  },
   strategies: {
     title: 'Estrategias',
     intro:

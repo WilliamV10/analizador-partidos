@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { legName, parseSurebets, splitStakes } from '../js/domain/surebets.js';
 import { fairProbabilities, overround, parseMarketLine, parseMarketLines, toDecimalOdds } from '../js/domain/odds.js';
 
 describe('toDecimalOdds', () => {
@@ -76,5 +77,25 @@ describe('fairProbabilities (razón de cuotas)', () => {
     const fair = fairProbabilities([1.3, 1.25, 1.9], 2);
     assert.ok(Math.abs(fair.reduce((a, b) => a + b, 0) - 2) < 1e-9);
     assert.deepEqual(fairProbabilities([2, 2]), [0.5, 0.5]);
+  });
+});
+
+describe('apuestas seguras', () => {
+  it('reparte para ganar lo pedido en cualquier resultado', () => {
+    const result = splitStakes([2.95, 1.76], 'win', 55, 0.01);
+    assert.ok(result.margin > 0);
+    assert.ok(result.profits.every((profit) => profit >= 55 - 0.01));
+    const total = splitStakes([2.95, 1.76], 'total', 100, 0.01);
+    assert.ok(Math.abs(total.total - 100) < 0.02);
+    assert.ok(Math.abs(total.payouts[0] - total.payouts[1]) < 0.05);
+  });
+
+  it('lee el JSON del script y nombra las selecciones', () => {
+    const data = parseSurebets(JSON.stringify({ seguras: [{ partido: 'A vs B', legs: [{ mk: '1X2', sel: '1', cuota: 2 }, { mk: 'DC', sel: 'X2', cuota: 2.1 }] }] }));
+    assert.equal(data.safe.length, 1);
+    assert.equal(legName({ mk: 'AH -0.5', sel: 'Visita' }, 'A vs B'), 'Hándicap B +0.5');
+    assert.equal(legName({ mk: 'DC', sel: 'X2' }, 'A vs B'), 'Empate o B');
+    assert.equal(legName({ mk: 'OU 2.5', sel: 'Más' }, 'A vs B'), 'Más de 2.5 goles');
+    assert.throws(() => parseSurebets('{"hola":1}'));
   });
 });

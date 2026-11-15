@@ -153,6 +153,10 @@ export function renderSettings(state, actions) {
         ),
       ),
       card(
+        { label: TEXTS.surebets.settingsTitle },
+        button({ label: TEXTS.surebets.settingsLink, variant: 'soft block', onClick: actions.openSurebets }),
+      ),
+      card(
         { label: TEXTS.settings.theme },
         segmented(
           Object.entries(TEXTS.settings.themes).map(([id, label]) => ({ id, label })),

@@ -16,6 +16,7 @@ export const SCREENS = Object.freeze({
   HISTORY: 'history',
   STRATEGIES: 'strategies',
   SETTINGS: 'settings',
+  SUREBETS: 'surebets',
 });
 
 /**
